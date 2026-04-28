@@ -1,7 +1,5 @@
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.swing.JFrame;
+package com.spaceinvaders;
+
 import javax.swing.JPanel;
 import javax.swing.Timer;
 import java.awt.Color;
@@ -19,23 +17,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class SpaceInvadersGame {
-    public static void main(String[] args) {
-        JFrame frame = new JFrame("Space Invaders - Java Project");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        GamePanel panel = new GamePanel();
-        frame.setContentPane(panel);
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setResizable(false);
-        frame.setVisible(true);
-
-        panel.requestFocusInWindow();
-    }
-}
-
-class GamePanel extends JPanel implements ActionListener, KeyListener {
+/**
+ * Main game panel for Space Invaders game.
+ * Handles game logic, rendering, and user input.
+ */
+public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private static final int WIDTH = 800;
     private static final int HEIGHT = 600;
 
@@ -349,67 +335,5 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
         } else if (code == KeyEvent.VK_SPACE) {
             shootPressed = false;
         }
-    }
-
-    private static class Alien {
-        double x;
-        double y;
-
-        Alien(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
-    }
-
-    private static class Bullet {
-        int x;
-        int y;
-
-        Bullet(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
-    }
-}
-
-class SoundPlayer {
-    private SoundPlayer() {
-    }
-
-    public static void playShoot() {
-        playTone(850, 50, 0.40);
-    }
-
-    public static void playHit() {
-        playTone(220, 70, 0.60);
-    }
-
-    public static void playGameOver() {
-        playTone(120, 320, 0.55);
-    }
-
-    private static void playTone(final int hz, final int ms, final double volume) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    int sampleRate = 44100;
-                    int numSamples = (int) ((ms / 1000.0) * sampleRate);
-                    byte[] data = new byte[numSamples];
-
-                    for (int i = 0; i < data.length; i++) {
-                        double angle = i / (sampleRate / (double) hz) * 2.0 * Math.PI;
-                        data[i] = (byte) (Math.sin(angle) * 127.0 * volume);
-                    }
-
-                    AudioFormat format = new AudioFormat(sampleRate, 8, 1, true, false);
-                    Clip clip = AudioSystem.getClip();
-                    clip.open(format, data, 0, data.length);
-                    clip.start();
-                } catch (Exception ignored) {
-                    // Keep game playable even if sound is unavailable.
-                }
-            }
-        }).start();
     }
 }

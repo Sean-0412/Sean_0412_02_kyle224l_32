@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.spaceinvaders'
+version = '1.0.0'
+description = 'A Java Swing-based Space Invaders game'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+application {
+    mainClass = 'com.spaceinvaders.SpaceInvadersGame'
+}
+
+tasks.named('jar') {
+    manifest {
+        attributes 'Main-Class': 'com.spaceinvaders.SpaceInvadersGame'
+    }
+}
+
+dependencies {
+    // No external dependencies required
+}
+
+tasks.register('run', JavaExec) {
+    group = 'application'
+    description = 'Run the Space Invaders game'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.spaceinvaders.SpaceInvadersGame'
+}
