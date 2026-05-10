@@ -2,9 +2,6 @@ package com.spaceinvaders;
 
 import javax.swing.JFrame;
 
-/**
- * Main entry point for the Space Invaders game.
- */
 public class SpaceInvadersGame {
     public static void main(String[] args) {
         JFrame frame = new JFrame("Space Invaders - Java Project");
@@ -12,11 +9,11 @@ public class SpaceInvadersGame {
 
         GamePanel panel = new GamePanel();
         frame.setContentPane(panel);
-        frame.pack();
-        frame.setLocationRelativeTo(null);
+        frame.pack(); // 自動貼合 GamePanel 的大小
+        frame.setLocationRelativeTo(null); // 視窗置中
         frame.setResizable(false);
         frame.setVisible(true);
 
-        panel.requestFocusInWindow();
+        panel.requestFocusInWindow(); // 確保鍵盤事件能被接收
     }
 }
