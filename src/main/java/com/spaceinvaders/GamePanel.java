@@ -7,6 +7,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -63,8 +64,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     private double alienSpeed;
     private int alienDirection;
+    
+    private int difficulty; // 0 = Easy, 1 = Normal, 2 = Hard
 
     public GamePanel() {
+        this(1); // Default to Normal
+    }
+    
+    public GamePanel(int difficulty) {
+        System.out.println("GamePanel: Constructor starting... (Difficulty: " + difficulty + ")");
+        this.difficulty = difficulty;
+        
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
         setFocusable(true);
@@ -73,10 +83,19 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         playerX = (WIDTH - PLAYER_WIDTH) / 2;
         playerY = HEIGHT - 70;
 
+        System.out.println("GamePanel: Initializing aliens...");
         initAliens();
 
+        System.out.println("GamePanel: Creating timer...");
         gameTimer = new Timer(16, this);
-        gameTimer.start();
+        System.out.println("GamePanel: Constructor finished.");
+    }
+
+    public void startGame() {
+        if (!gameTimer.isRunning()) {
+            gameTimer.start();
+        }
+        requestFocusInWindow();
     }
 
     private void initAliens() {
@@ -88,7 +107,21 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 aliens.add(new Alien(x, y));
             }
         }
-        alienSpeed = 1.8;
+        
+        // Set initial speed based on difficulty
+        switch(difficulty) {
+            case 0: // Easy
+                alienSpeed = 0.8;
+                break;
+            case 1: // Normal
+                alienSpeed = 1.8;
+                break;
+            case 2: // Hard
+                alienSpeed = 3.0;
+                break;
+            default:
+                alienSpeed = 1.8;
+        }
         alienDirection = 1;
     }
 
@@ -251,6 +284,27 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         g2.setColor(new Color(0, 255, 120));
         g2.setFont(new Font("Consolas", Font.BOLD, 20));
         g2.drawString("Score: " + score, 20, 30);
+        
+        // Draw difficulty level
+        String difficultyText;
+        switch(difficulty) {
+            case 0:
+                difficultyText = "EASY";
+                g2.setColor(new Color(100, 255, 100));
+                break;
+            case 1:
+                difficultyText = "NORMAL";
+                g2.setColor(new Color(255, 200, 0));
+                break;
+            case 2:
+                difficultyText = "HARD";
+                g2.setColor(new Color(255, 100, 100));
+                break;
+            default:
+                difficultyText = "NORMAL";
+                g2.setColor(new Color(255, 200, 0));
+        }
+        g2.drawString("Difficulty: " + difficultyText, WIDTH - 250, 30);
 
         g2.setFont(new Font("Consolas", Font.PLAIN, 14));
         g2.setColor(new Color(170, 255, 210));
@@ -258,8 +312,48 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void drawPlayer(Graphics2D g2) {
-        g2.setColor(new Color(70, 150, 255));
-        g2.fillRoundRect(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT, 8, 8);
+        int centerX = playerX + PLAYER_WIDTH / 2;
+        int centerY = playerY + PLAYER_HEIGHT / 2;
+
+        // 主船體 - 三角形（指向上方）
+        int[] hullX = {
+            playerX + PLAYER_WIDTH / 2,           // 前端（尖點）
+            playerX + 5,                          // 左後端
+            playerX + PLAYER_WIDTH - 5             // 右後端
+        };
+        int[] hullY = {
+            playerY,                              // 前端
+            playerY + PLAYER_HEIGHT,              // 左後端
+            playerY + PLAYER_HEIGHT               // 右後端
+        };
+        
+        Polygon hull = new Polygon(hullX, hullY, 3);
+        g2.setColor(new Color(50, 150, 255));
+        g2.fillPolygon(hull);
+        
+        // 船體邊框
+        g2.setColor(new Color(100, 180, 255));
+        g2.setStroke(new java.awt.BasicStroke(2));
+        g2.drawPolygon(hull);
+        
+        // 駕駛艙（圓形窗口）
+        int cockpitX = playerX + PLAYER_WIDTH / 2 - 6;
+        int cockpitY = playerY + 4;
+        g2.setColor(new Color(150, 255, 150));
+        g2.fillOval(cockpitX, cockpitY, 12, 8);
+        g2.setColor(new Color(100, 200, 100));
+        g2.drawOval(cockpitX, cockpitY, 12, 8);
+        
+        // 左翼推進器
+        g2.setColor(new Color(255, 100, 50));
+        g2.fillRect(playerX + 8, playerY + PLAYER_HEIGHT - 4, 6, 4);
+        
+        // 右翼推進器
+        g2.fillRect(playerX + PLAYER_WIDTH - 14, playerY + PLAYER_HEIGHT - 4, 6, 4);
+        
+        // 中央推進器
+        g2.setColor(new Color(255, 200, 100));
+        g2.fillRect(playerX + PLAYER_WIDTH / 2 - 2, playerY + PLAYER_HEIGHT - 2, 4, 2);
     }
 
     private void drawBullets(Graphics2D g2) {
