@@ -21,14 +21,23 @@ import java.util.List;
 /**
  * Main game panel for Space Invaders game.
  * Handles game logic, rendering, and user input.
+ * 
+ * Game Modes:
+ * - MODE_CLASSIC (0): Only left/right movement, game ends when enemies reach the line
+ * - MODE_DODGING (1): Full movement (up/down/left/right), game ends when hit by enemies
  */
 public class GamePanel extends JPanel implements ActionListener, KeyListener {
+    // Game modes
+    private static final int MODE_CLASSIC = 0;
+    private static final int MODE_DODGING = 1;
+    
     private static final int WIDTH = 800;
     private static final int HEIGHT = 600;
 
     private static final int PLAYER_WIDTH = 70;
     private static final int PLAYER_HEIGHT = 18;
     private static final int PLAYER_SPEED = 7;
+    private static final int PLAYER_VERTICAL_SPEED = 5;
 
     private static final int BULLET_WIDTH = 4;
     private static final int BULLET_HEIGHT = 12;
@@ -50,10 +59,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private final List<Bullet> bullets = new ArrayList<Bullet>();
 
     private int playerX;
-    private final int playerY;
+    private int playerY;
 
     private boolean moveLeft;
     private boolean moveRight;
+    private boolean moveUp;
+    private boolean moveDown;
     private boolean shootPressed;
 
     private int fireCooldown;
@@ -61,19 +72,35 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     private boolean gameOver;
     private boolean gameWin;
+    
+    private boolean isPaused;
+    private int resumeCountdown; // 3, 2, 1, then resume
+    private int pausedSelectedOption; // 0 = Continue, 1 = Return to Difficulty
+    private static final int PAUSE_CONTINUE = 0;
+    private static final int PAUSE_RETURN = 1;
 
     private double alienSpeed;
     private int alienDirection;
+    private int safeLineY; // For classic mode: the line that enemies shouldn't cross
     
     private int difficulty; // 0 = Easy, 1 = Normal, 2 = Hard
+    private int gameMode;   // 0 = Classic, 1 = Dodging
+    private GameFrame gameFrame; // Reference to parent frame
 
     public GamePanel() {
-        this(1); // Default to Normal
+        this(null, MODE_CLASSIC, 1); // Default to Classic mode with Normal difficulty
     }
     
-    public GamePanel(int difficulty) {
-        System.out.println("GamePanel: Constructor starting... (Difficulty: " + difficulty + ")");
+    public GamePanel(int gameMode, int difficulty) {
+        this(null, gameMode, difficulty);
+    }
+    
+    public GamePanel(GameFrame gameFrame, int gameMode, int difficulty) {
+        System.out.println("GamePanel: Constructor starting... (Mode: " + (gameMode == MODE_CLASSIC ? "Classic" : "Dodging") + ", Difficulty: " + difficulty + ")");
+        this.gameFrame = gameFrame;
+        this.gameMode = gameMode;
         this.difficulty = difficulty;
+        this.safeLineY = HEIGHT - 70;
         
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
@@ -89,6 +116,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         System.out.println("GamePanel: Creating timer...");
         gameTimer = new Timer(16, this);
         System.out.println("GamePanel: Constructor finished.");
+    }
+    
+    @Deprecated
+    public GamePanel(int difficulty) {
+        this(MODE_CLASSIC, difficulty);
     }
 
     public void startGame() {
@@ -129,12 +161,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         score = 0;
         bullets.clear();
         playerX = (WIDTH - PLAYER_WIDTH) / 2;
+        playerY = HEIGHT - 70;
         gameOver = false;
         gameWin = false;
         fireCooldown = 0;
         moveLeft = false;
         moveRight = false;
+        moveUp = false;
+        moveDown = false;
         shootPressed = false;
+        isPaused = false;
+        resumeCountdown = 0;
         initAliens();
     }
 
@@ -146,6 +183,19 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     private void updateGame() {
         if (gameOver) {
+            return;
+        }
+        
+        // Handle pause resume countdown
+        if (isPaused && resumeCountdown > 0) {
+            resumeCountdown--;
+            if (resumeCountdown == 0) {
+                isPaused = false;
+            }
+            return;
+        }
+        
+        if (isPaused) {
             return;
         }
 
@@ -167,12 +217,34 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         if (moveRight) {
             playerX += PLAYER_SPEED;
         }
+        
+        // Only allow vertical movement in dodging mode
+        if (gameMode == MODE_DODGING) {
+            if (moveUp) {
+                playerY -= PLAYER_VERTICAL_SPEED;
+            }
+            if (moveDown) {
+                playerY += PLAYER_VERTICAL_SPEED;
+            }
+        }
 
         if (playerX < 0) {
             playerX = 0;
         }
         if (playerX > WIDTH - PLAYER_WIDTH) {
             playerX = WIDTH - PLAYER_WIDTH;
+        }
+        
+        if (gameMode == MODE_DODGING) {
+            if (playerY < 50) {
+                playerY = 50;
+            }
+            if (playerY > HEIGHT - PLAYER_HEIGHT - 10) {
+                playerY = HEIGHT - PLAYER_HEIGHT - 10;
+            }
+        } else {
+            // Classic mode: keep player at safe line
+            playerY = safeLineY;
         }
 
         if (shootPressed && fireCooldown == 0 && bullets.size() < MAX_BULLETS) {
@@ -188,8 +260,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         Iterator<Bullet> iterator = bullets.iterator();
         while (iterator.hasNext()) {
             Bullet bullet = iterator.next();
-            bullet.y -= BULLET_SPEED;
-            if (bullet.y + BULLET_HEIGHT < 0) {
+            bullet.update();
+            if (bullet.y + Bullet.HEIGHT < 0) {
                 iterator.remove();
             }
         }
@@ -223,13 +295,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         Iterator<Bullet> bulletIterator = bullets.iterator();
         while (bulletIterator.hasNext()) {
             Bullet bullet = bulletIterator.next();
-            Rectangle2D bulletRect = new Rectangle2D.Double(bullet.x, bullet.y, BULLET_WIDTH, BULLET_HEIGHT);
+            Rectangle2D bulletRect = bullet.getBounds();
 
             boolean hit = false;
             Iterator<Alien> alienIterator = aliens.iterator();
             while (alienIterator.hasNext()) {
                 Alien alien = alienIterator.next();
-                Rectangle2D alienRect = new Rectangle2D.Double(alien.x, alien.y, ALIEN_WIDTH, ALIEN_HEIGHT);
+                Rectangle2D alienRect = alien.getBounds();
                 if (bulletRect.intersects(alienRect)) {
                     alienIterator.remove();
                     bulletIterator.remove();
@@ -252,13 +324,28 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             gameWin = true;
             return;
         }
-
-        for (Alien alien : aliens) {
-            if (alien.y + ALIEN_HEIGHT >= playerY) {
-                gameOver = true;
-                gameWin = false;
-                SoundPlayer.playGameOver();
-                return;
+        
+        // Check for collisions with player (only in dodging mode)
+        if (gameMode == MODE_DODGING) {
+            for (Alien alien : aliens) {
+                if (alien.getBounds().intersects(new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT))) {
+                    gameOver = true;
+                    gameWin = false;
+                    SoundPlayer.playGameOver();
+                    return;
+                }
+            }
+        }
+        
+        // Check if aliens crossed the safety line (only in classic mode)
+        if (gameMode == MODE_CLASSIC) {
+            for (Alien alien : aliens) {
+                if (alien.y + ALIEN_HEIGHT >= safeLineY) {
+                    gameOver = true;
+                    gameWin = false;
+                    SoundPlayer.playGameOver();
+                    return;
+                }
             }
         }
     }
@@ -270,10 +357,20 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         drawHud(g2);
+        
+        // Draw safety line in classic mode
+        if (gameMode == MODE_CLASSIC) {
+            drawSafetyLine(g2);
+        }
+        
         drawPlayer(g2);
         drawBullets(g2);
         drawAliens(g2);
-        drawBottomLine(g2);
+        
+        // Draw pause menu if paused
+        if (isPaused) {
+            drawPauseMenu(g2);
+        }
 
         if (gameOver) {
             drawGameOver(g2);
@@ -284,6 +381,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         g2.setColor(new Color(0, 255, 120));
         g2.setFont(new Font("Consolas", Font.BOLD, 20));
         g2.drawString("Score: " + score, 20, 30);
+        
+        // Draw game mode
+        String modeText = gameMode == MODE_CLASSIC ? "CLASSIC" : "DODGING";
+        g2.setColor(gameMode == MODE_CLASSIC ? new Color(100, 150, 255) : new Color(255, 100, 150));
+        g2.drawString("Mode: " + modeText, 20, 55);
         
         // Draw difficulty level
         String difficultyText;
@@ -308,7 +410,90 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         g2.setFont(new Font("Consolas", Font.PLAIN, 14));
         g2.setColor(new Color(170, 255, 210));
-        g2.drawString("Move: Left/Right  Shoot: Space", 20, 52);
+        if (gameMode == MODE_CLASSIC) {
+            g2.drawString("Move: Left/Right  Shoot: Space", 20, 77);
+        } else {
+            g2.drawString("Move: Arrows  Shoot: Space", 20, 77);
+        }
+    }
+
+    private void drawSafetyLine(Graphics2D g2) {
+        g2.setColor(new Color(255, 100, 100, 200));
+        g2.setStroke(new java.awt.BasicStroke(2, java.awt.BasicStroke.CAP_BUTT, 
+                java.awt.BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0));
+        g2.drawLine(0, safeLineY - 5, WIDTH, safeLineY - 5);
+        
+        g2.setColor(new Color(255, 100, 100, 150));
+        g2.setFont(new Font("Consolas", Font.BOLD, 12));
+        String warning = "DANGER ZONE";
+        int tw = g2.getFontMetrics().stringWidth(warning);
+        g2.drawString(warning, (WIDTH - tw) / 2, safeLineY - 15);
+    }
+
+    private void drawPauseMenu(Graphics2D g2) {
+        // Semi-transparent overlay
+        g2.setColor(new Color(0, 0, 0, 200));
+        g2.fillRect(0, 0, WIDTH, HEIGHT);
+        
+        // Title
+        g2.setColor(new Color(255, 200, 0));
+        g2.setFont(new Font("Consolas", Font.BOLD, 70));
+        String title = "PAUSED";
+        int tw = g2.getFontMetrics().stringWidth(title);
+        g2.drawString(title, (WIDTH - tw) / 2, 150);
+        
+        // Resume countdown if active
+        if (resumeCountdown > 0) {
+            g2.setColor(new Color(0, 255, 150));
+            g2.setFont(new Font("Consolas", Font.BOLD, 50));
+            int secondsLeft = (resumeCountdown + 59) / 60; // Round up to nearest second
+            String countdownText = "Resuming in " + secondsLeft;
+            int cw = g2.getFontMetrics().stringWidth(countdownText);
+            g2.drawString(countdownText, (WIDTH - cw) / 2, 280);
+            return;
+        }
+        
+        // Menu options
+        int startY = 280;
+        String[] options = {"Continue Game", "Return to Difficulty"};
+        
+        for (int i = 0; i < options.length; i++) {
+            if (pausedSelectedOption == i) {
+                // Highlighted
+                g2.setColor(new Color(255, 200, 0));
+                g2.setFont(new Font("Consolas", Font.BOLD, 36));
+                int ow = g2.getFontMetrics().stringWidth(options[i]);
+                
+                // Background box
+                int boxX = (WIDTH - ow) / 2 - 20;
+                int boxY = startY + i * 80 - 35;
+                int boxW = ow + 40;
+                int boxH = 50;
+                
+                g2.setColor(new Color(150, 120, 0, 100));
+                g2.fillRect(boxX, boxY, boxW, boxH);
+                g2.setColor(new Color(255, 200, 0));
+                g2.setStroke(new java.awt.BasicStroke(3));
+                g2.drawRect(boxX, boxY, boxW, boxH);
+                
+                // Text
+                g2.setColor(new Color(255, 200, 0));
+                g2.drawString(options[i], (WIDTH - ow) / 2, startY + i * 80);
+            } else {
+                // Normal
+                g2.setColor(new Color(100, 200, 255));
+                g2.setFont(new Font("Consolas", Font.PLAIN, 36));
+                int ow = g2.getFontMetrics().stringWidth(options[i]);
+                g2.drawString(options[i], (WIDTH - ow) / 2, startY + i * 80);
+            }
+        }
+        
+        // Hint
+        g2.setColor(new Color(100, 200, 255));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
+        String hint = "Use ↑↓ to select, Enter to confirm";
+        int hw = g2.getFontMetrics().stringWidth(hint);
+        g2.drawString(hint, (WIDTH - hw) / 2, 550);
     }
 
     private void drawPlayer(Graphics2D g2) {
@@ -374,11 +559,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
-    private void drawBottomLine(Graphics2D g2) {
-        g2.setColor(new Color(60, 60, 60));
-        g2.drawLine(0, playerY + PLAYER_HEIGHT + 4, WIDTH, playerY + PLAYER_HEIGHT + 4);
-    }
-
     private void drawGameOver(Graphics2D g2) {
         g2.setColor(new Color(0, 0, 0, 180));
         g2.fillRect(0, 0, WIDTH, HEIGHT);
@@ -408,14 +588,57 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     @Override
     public void keyPressed(KeyEvent e) {
         int code = e.getKeyCode();
+        
+        // Handle pause menu navigation
+        if (isPaused && resumeCountdown == 0) {
+            if (code == KeyEvent.VK_UP) {
+                pausedSelectedOption = (pausedSelectedOption - 1 + 2) % 2;
+                repaint();
+                return;
+            } else if (code == KeyEvent.VK_DOWN) {
+                pausedSelectedOption = (pausedSelectedOption + 1) % 2;
+                repaint();
+                return;
+            } else if (code == KeyEvent.VK_ENTER) {
+                handlePauseMenuChoice();
+                repaint();
+                return;
+            }
+        }
+        
+        // Handle pause key
+        if (code == KeyEvent.VK_P && !gameOver && !isPaused) {
+            isPaused = true;
+            pausedSelectedOption = PAUSE_CONTINUE;
+            repaint();
+            return;
+        }
+        
         if (code == KeyEvent.VK_LEFT) {
             moveLeft = true;
         } else if (code == KeyEvent.VK_RIGHT) {
             moveRight = true;
+        } else if (code == KeyEvent.VK_UP) {
+            moveUp = true;
+        } else if (code == KeyEvent.VK_DOWN) {
+            moveDown = true;
         } else if (code == KeyEvent.VK_SPACE) {
             shootPressed = true;
         } else if (code == KeyEvent.VK_R && gameOver) {
             restartGame();
+        }
+    }
+    
+    private void handlePauseMenuChoice() {
+        if (pausedSelectedOption == PAUSE_CONTINUE) {
+            // Start countdown to resume (3 seconds = 3000ms / 16ms per frame ≈ 188 frames)
+            resumeCountdown = 188;
+        } else if (pausedSelectedOption == PAUSE_RETURN) {
+            // Return to difficulty selection
+            gameTimer.stop();
+            if (gameFrame != null) {
+                gameFrame.returnToDifficultyMenu();
+            }
         }
     }
 
@@ -426,6 +649,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             moveLeft = false;
         } else if (code == KeyEvent.VK_RIGHT) {
             moveRight = false;
+        } else if (code == KeyEvent.VK_UP) {
+            moveUp = false;
+        } else if (code == KeyEvent.VK_DOWN) {
+            moveDown = false;
         } else if (code == KeyEvent.VK_SPACE) {
             shootPressed = false;
         }

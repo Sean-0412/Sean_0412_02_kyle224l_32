@@ -8,6 +8,8 @@ import javax.swing.JFrame;
 public class GameFrame extends JFrame {
     private MenuPanel menuPanel;
     private GamePanel gamePanel;
+    private int lastGameMode;
+    private int lastDifficulty;
     
     public GameFrame() {
         setTitle("Space Invaders");
@@ -25,12 +27,15 @@ public class GameFrame extends JFrame {
         setLocationRelativeTo(null);
     }
     
-    public void startGameWithDifficulty(int difficulty) {
+    public void startGameWithSettings(int gameMode, int difficulty) {
+        lastGameMode = gameMode;
+        lastDifficulty = difficulty;
+        
         // Remove menu panel
         remove(menuPanel);
         
-        // Create and add game panel with difficulty level
-        gamePanel = new GamePanel(difficulty);
+        // Create and add game panel with game mode and difficulty level
+        gamePanel = new GamePanel(this, gameMode, difficulty);
         add(gamePanel);
         
         // Refresh
@@ -39,5 +44,26 @@ public class GameFrame extends JFrame {
         
         // Start the game
         gamePanel.startGame();
+    }
+    
+    public void returnToDifficultyMenu() {
+        // Remove game panel
+        remove(gamePanel);
+        
+        // Recreate and show menu at difficulty selection
+        menuPanel = new MenuPanel(this);
+        menuPanel.setInitialStateToDifficultyMenu(lastGameMode);
+        add(menuPanel);
+        
+        // Refresh
+        revalidate();
+        repaint();
+        
+        menuPanel.requestFocusInWindow();
+    }
+    
+    @Deprecated
+    public void startGameWithDifficulty(int difficulty) {
+        startGameWithSettings(0, difficulty);
     }
 }
