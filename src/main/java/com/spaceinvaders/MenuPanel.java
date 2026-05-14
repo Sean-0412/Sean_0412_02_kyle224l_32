@@ -20,17 +20,20 @@ public class MenuPanel extends JPanel implements KeyListener {
     
     private int selectedOption = 0;
     private static final String[] MAIN_MENU_OPTIONS = {"Start Game", "Controls", "About", "Exit"};
+    private static final String[] GAME_MODE_OPTIONS = {"Classic Mode", "Dodging Mode"};
     private static final String[] DIFFICULTY_OPTIONS = {"Easy", "Normal", "Hard"};
     
     private GameFrame gameFrame;
     
     // Menu states
     private static final int STATE_MAIN_MENU = 0;
-    private static final int STATE_DIFFICULTY = 1;
-    private static final int STATE_CONTROLS = 2;
-    private static final int STATE_ABOUT = 3;
+    private static final int STATE_GAME_MODE = 1;
+    private static final int STATE_DIFFICULTY = 2;
+    private static final int STATE_CONTROLS = 3;
+    private static final int STATE_ABOUT = 4;
     
     private int currentState = STATE_MAIN_MENU;
+    private int selectedGameMode = 0; // 0 = Classic, 1 = Dodging
     
     public MenuPanel(GameFrame gameFrame) {
         this.gameFrame = gameFrame;
@@ -39,6 +42,13 @@ public class MenuPanel extends JPanel implements KeyListener {
         setFocusable(true);
         addKeyListener(this);
         requestFocusInWindow();
+    }
+    
+    public void setInitialStateToDifficultyMenu(int gameMode) {
+        this.currentState = STATE_DIFFICULTY;
+        this.selectedGameMode = gameMode;
+        this.selectedOption = 1; // Default to Normal
+        repaint();
     }
     
     @Override
@@ -51,6 +61,9 @@ public class MenuPanel extends JPanel implements KeyListener {
             case STATE_MAIN_MENU:
                 drawMainMenu(g2);
                 break;
+            case STATE_GAME_MODE:
+                drawGameModeMenu(g2);
+                break;
             case STATE_DIFFICULTY:
                 drawDifficultyMenu(g2);
                 break;
@@ -61,6 +74,61 @@ public class MenuPanel extends JPanel implements KeyListener {
                 drawAboutScreen(g2);
                 break;
         }
+    }
+    
+    private void drawGameModeMenu(Graphics2D g2) {
+        // Title
+        g2.setColor(new Color(0, 255, 150));
+        g2.setFont(new Font("Consolas", Font.BOLD, 60));
+        String title = "Select Game Mode";
+        int tw = g2.getFontMetrics().stringWidth(title);
+        g2.drawString(title, (WIDTH - tw) / 2, 100);
+        
+        // Mode descriptions
+        g2.setColor(new Color(100, 200, 255));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 16));
+        
+        int startY = 200;
+        
+        // Classic Mode
+        String classicDesc1 = "Only left/right movement";
+        String classicDesc2 = "Game ends when enemies cross the line";
+        int cw1 = g2.getFontMetrics().stringWidth(classicDesc1);
+        int cw2 = g2.getFontMetrics().stringWidth(classicDesc2);
+        if (selectedOption == 0) {
+            g2.setColor(new Color(255, 200, 0));
+            g2.drawString("► CLASSIC MODE ◄", (WIDTH - 220) / 2, startY);
+        } else {
+            g2.setColor(new Color(100, 200, 255));
+            g2.drawString("CLASSIC MODE", (WIDTH - 200) / 2, startY);
+        }
+        g2.setColor(new Color(150, 200, 255));
+        g2.drawString(classicDesc1, (WIDTH - cw1) / 2, startY + 50);
+        g2.drawString(classicDesc2, (WIDTH - cw2) / 2, startY + 75);
+        
+        // Dodging Mode
+        String dodgeDesc1 = "Move in all directions";
+        String dodgeDesc2 = "Game ends if hit by enemies";
+        int dw1 = g2.getFontMetrics().stringWidth(dodgeDesc1);
+        int dw2 = g2.getFontMetrics().stringWidth(dodgeDesc2);
+        startY = 350;
+        if (selectedOption == 1) {
+            g2.setColor(new Color(255, 200, 0));
+            g2.drawString("► DODGING MODE ◄", (WIDTH - 220) / 2, startY);
+        } else {
+            g2.setColor(new Color(100, 200, 255));
+            g2.drawString("DODGING MODE", (WIDTH - 200) / 2, startY);
+        }
+        g2.setColor(new Color(150, 200, 255));
+        g2.drawString(dodgeDesc1, (WIDTH - dw1) / 2, startY + 50);
+        g2.drawString(dodgeDesc2, (WIDTH - dw2) / 2, startY + 75);
+        
+        // Hint
+        g2.setColor(new Color(100, 200, 255));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
+        String hint = "Use ↑↓ to select, Enter to confirm, Esc to return";
+        int hw = g2.getFontMetrics().stringWidth(hint);
+        g2.drawString(hint, (WIDTH - hw) / 2, 550);
     }
     
     private void drawMainMenu(Graphics2D g2) {
@@ -228,6 +296,9 @@ public class MenuPanel extends JPanel implements KeyListener {
             case STATE_MAIN_MENU:
                 handleMainMenuInput(code);
                 break;
+            case STATE_GAME_MODE:
+                handleGameModeInput(code);
+                break;
             case STATE_DIFFICULTY:
                 handleDifficultyInput(code);
                 break;
@@ -250,8 +321,8 @@ public class MenuPanel extends JPanel implements KeyListener {
         } else if (code == KeyEvent.VK_ENTER) {
             switch(selectedOption) {
                 case 0: // Start Game
-                    currentState = STATE_DIFFICULTY;
-                    selectedOption = 1; // Default to Normal
+                    currentState = STATE_GAME_MODE;
+                    selectedOption = 0; // Reset to first mode
                     repaint();
                     break;
                 case 1: // Controls
@@ -269,6 +340,25 @@ public class MenuPanel extends JPanel implements KeyListener {
         }
     }
     
+    private void handleGameModeInput(int code) {
+        if (code == KeyEvent.VK_UP) {
+            selectedOption = (selectedOption - 1 + GAME_MODE_OPTIONS.length) % GAME_MODE_OPTIONS.length;
+            repaint();
+        } else if (code == KeyEvent.VK_DOWN) {
+            selectedOption = (selectedOption + 1) % GAME_MODE_OPTIONS.length;
+            repaint();
+        } else if (code == KeyEvent.VK_ENTER) {
+            selectedGameMode = selectedOption;
+            currentState = STATE_DIFFICULTY;
+            selectedOption = 1; // Default to Normal
+            repaint();
+        } else if (code == KeyEvent.VK_ESCAPE) {
+            currentState = STATE_MAIN_MENU;
+            selectedOption = 0;
+            repaint();
+        }
+    }
+    
     private void handleDifficultyInput(int code) {
         if (code == KeyEvent.VK_UP) {
             selectedOption = (selectedOption - 1 + DIFFICULTY_OPTIONS.length) % DIFFICULTY_OPTIONS.length;
@@ -279,8 +369,8 @@ public class MenuPanel extends JPanel implements KeyListener {
         } else if (code == KeyEvent.VK_ENTER) {
             startGame();
         } else if (code == KeyEvent.VK_ESCAPE) {
-            currentState = STATE_MAIN_MENU;
-            selectedOption = 0;
+            currentState = STATE_GAME_MODE;
+            selectedOption = selectedGameMode;
             repaint();
         }
     }
@@ -302,7 +392,7 @@ public class MenuPanel extends JPanel implements KeyListener {
     }
     
     private void startGame() {
-        gameFrame.startGameWithDifficulty(selectedOption);
+        gameFrame.startGameWithSettings(selectedGameMode, selectedOption);
     }
     
     @Override
