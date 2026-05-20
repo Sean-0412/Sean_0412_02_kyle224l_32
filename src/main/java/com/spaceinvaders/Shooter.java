@@ -2,13 +2,16 @@ package com.spaceinvaders;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.Rectangle; // 必須匯入
+import java.awt.Rectangle;
 
+/**
+ * Represents the player's shooter/spaceship.
+ */
 public class Shooter {
-    int x, y;
-    final int width = 50, height = 20;
-    int dx = 0; 
-    int dy = 0; 
+    public int x, y;
+    public final int width = 50, height = 20;
+    private int dx = 0;
+    private int dy = 0;
 
     public Shooter(int x, int y) {
         this.x = x;
@@ -17,12 +20,12 @@ public class Shooter {
 
     public void move() {
         x += dx;
-        y += dy; 
+        y += dy;
 
         if (x < 0) x = 0;
         if (x > 800 - width) x = 800 - width;
-        if (y < 0) y = 0; 
-        if (y > 600 - height) y = 600 - height; 
+        if (y < 0) y = 0;
+        if (y > 600 - height) y = 600 - height;
     }
 
     public void setDirectionX(int dx) {
@@ -38,7 +41,6 @@ public class Shooter {
         g.fillRect(x, y, width, height);
     }
 
-    // 🌟 新增：取得玩家的碰撞邊界矩形
     public Rectangle getBounds() {
         return new Rectangle(x, y, width, height);
     }

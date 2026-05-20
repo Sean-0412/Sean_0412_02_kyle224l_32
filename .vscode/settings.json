@@ -2,5 +2,8 @@
   "java.project.sourcePaths": [
     "src/main/java"
   ],
-  "java.configuration.updateBuildConfiguration": "interactive"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.server.launchMode": "Standard",
+  "java.completion.enabled": true,
+  "java.format.enabled": true
 }
