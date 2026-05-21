@@ -129,6 +129,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private int stageNextSpawnCountdown;
     private static final int STAGE_SPAWN_INTERVAL = 120;
     private static final int STAGE_SPAWN_MIN_INTERVAL = 35;
+    
+    // Dodging mode specific variables
+    private int remainingDodgingAliens;
+    private int dodgingNextSpawnCountdown;
+    private boolean dodgingBossSpawned;
+    private int dodgingSpawnBatch = 1;
+    private int dodgingWaveCount;
+    private static final int DODGING_SPAWN_INTERVAL = 60;
+    private static final int DODGING_BOSS_SPAWN_TIME = 6000; // 100 seconds at 60fps
+    private static final int DODGING_TOTAL_ALIENS = 50;
+    
     private Random random = new Random();
     private GameFrame gameFrame; // Reference to parent frame
 
@@ -198,6 +209,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             spawnStageAliens(initialSpawn);
             remainingStageAliens -= initialSpawn;
             stageNextSpawnCountdown = STAGE_SPAWN_INTERVAL;
+        } else if (gameMode == MODE_DODGING) {
+            // Dodging mode: no initial aliens, spawn them one by one
+            dodgingBossSpawned = false;
+            remainingDodgingAliens = DODGING_TOTAL_ALIENS;
+            dodgingWaveCount = 0;
+            dodgingNextSpawnCountdown = DODGING_SPAWN_INTERVAL;
         } else {
             for (int row = 0; row < rows; row++) {
                 for (int col = 0; col < ALIEN_COLS; col++) {
@@ -211,13 +228,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         // Set initial speed based on difficulty and stage mode
         switch(difficulty) {
             case 0: // Easy
-                alienBaseSpeed = (gameMode == MODE_STAGE) ? 1.0 + (currentLevel - 1) * 0.25 : 0.8;
+                alienBaseSpeed = (gameMode == MODE_STAGE || gameMode == MODE_DODGING) ? 1.0 + (currentLevel - 1) * 0.25 : 0.8;
                 break;
             case 1: // Normal
-                alienBaseSpeed = (gameMode == MODE_STAGE) ? 1.8 + (currentLevel - 1) * 0.25 : 1.8;
+                alienBaseSpeed = (gameMode == MODE_STAGE || gameMode == MODE_DODGING) ? 1.8 + (currentLevel - 1) * 0.25 : 1.8;
                 break;
             case 2: // Hard
-                alienBaseSpeed = (gameMode == MODE_STAGE) ? 2.6 + (currentLevel - 1) * 0.25 : 3.0;
+                alienBaseSpeed = (gameMode == MODE_STAGE || gameMode == MODE_DODGING) ? 2.6 + (currentLevel - 1) * 0.25 : 3.0;
                 break;
             default:
                 alienBaseSpeed = 1.8;
@@ -236,6 +253,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         attackBoostRemaining = 0;
         shieldRemaining = 0;
         bossSpawned = false;
+        dodgingBossSpawned = false;
         ultimateActive = false;
         ultimateDuration = 0;
         ultimateCooldown = 0;
@@ -443,6 +461,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         // Increase difficulty over time through score milestones.
         if (gameMode == MODE_STAGE) {
             alienSpeed = alienBaseSpeed + (currentLevel - 1) * 0.15 + (score / 100.0) * 0.18;
+        } else if (gameMode == MODE_DODGING) {
+            alienSpeed = alienBaseSpeed + (score / 100.0) * 0.15;
         } else {
             alienSpeed = alienBaseSpeed + (score / 100.0) * 0.22;
         }
@@ -601,6 +621,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     return;
                 }
                 return;
+            } else if (gameMode == MODE_DODGING) {
+                // In dodging mode, continue spawning until boss is defeated
+                // The spawning is handled in updateDodgingSpawning()
+                return;
             }
             setGameOver(true);
             return;
@@ -688,30 +712,68 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void updateStageSpawning() {
-        if (gameMode != MODE_STAGE) {
-            return;
-        }
+        if (gameMode == MODE_STAGE) {
+            int spawnBatch = Math.min(stageSpawnBatch + currentLevel - 1, remainingStageAliens);
+            int spawnInterval = Math.max(STAGE_SPAWN_MIN_INTERVAL, STAGE_SPAWN_INTERVAL - (currentLevel - 1) * 15);
 
-        int spawnBatch = Math.min(stageSpawnBatch + currentLevel - 1, remainingStageAliens);
-        int spawnInterval = Math.max(STAGE_SPAWN_MIN_INTERVAL, STAGE_SPAWN_INTERVAL - (currentLevel - 1) * 15);
-
-        if (aliens.isEmpty() && remainingStageAliens > 0) {
-            int spawnCount = Math.min(spawnBatch, remainingStageAliens);
-            spawnStageAliens(spawnCount);
-            remainingStageAliens -= spawnCount;
-            stageNextSpawnCountdown = spawnInterval;
-            return;
-        }
-
-        if (remainingStageAliens > 0) {
-            stageNextSpawnCountdown--;
-            if (stageNextSpawnCountdown <= 0) {
+            if (aliens.isEmpty() && remainingStageAliens > 0) {
                 int spawnCount = Math.min(spawnBatch, remainingStageAliens);
                 spawnStageAliens(spawnCount);
                 remainingStageAliens -= spawnCount;
                 stageNextSpawnCountdown = spawnInterval;
+                return;
+            }
+
+            if (remainingStageAliens > 0) {
+                stageNextSpawnCountdown--;
+                if (stageNextSpawnCountdown <= 0) {
+                    int spawnCount = Math.min(spawnBatch, remainingStageAliens);
+                    spawnStageAliens(spawnCount);
+                    remainingStageAliens -= spawnCount;
+                    stageNextSpawnCountdown = spawnInterval;
+                }
+            }
+        } else if (gameMode == MODE_DODGING) {
+            updateDodgingSpawning();
+        }
+    }
+    
+    private void updateDodgingSpawning() {
+        // Spawn one alien at a time in dodging mode
+        if (dodgingBossSpawned && aliens.isEmpty()) {
+            // Boss was defeated, continue spawning normal aliens
+            dodgingBossSpawned = false;
+            remainingDodgingAliens = DODGING_TOTAL_ALIENS;
+            dodgingWaveCount = 0;
+            dodgingNextSpawnCountdown = DODGING_SPAWN_INTERVAL;
+        }
+        
+        if (remainingDodgingAliens > 0) {
+            dodgingNextSpawnCountdown--;
+            if (dodgingNextSpawnCountdown <= 0) {
+                int x = 20 + random.nextInt(WIDTH - 40 - ALIEN_WIDTH);
+                int y = START_Y;
+                aliens.add(new Alien(x, y));
+                remainingDodgingAliens--;
+                dodgingWaveCount++;
+                dodgingNextSpawnCountdown = DODGING_SPAWN_INTERVAL;
+                
+                // Spawn boss after certain wave count
+                if (dodgingWaveCount >= (DODGING_BOSS_SPAWN_TIME / DODGING_SPAWN_INTERVAL) && !dodgingBossSpawned) {
+                    spawnDodgingBoss();
+                }
             }
         }
+    }
+    
+    private void spawnDodgingBoss() {
+        dodgingBossSpawned = true;
+        remainingDodgingAliens = 0;
+        int x = (WIDTH - ALIEN_WIDTH) / 2;
+        int y = START_Y;
+        aliens.add(new Alien(x, y, BOSS_HEALTH, true));
+        alienDirection = 1;
+        alienSpeed = alienBaseSpeed;
     }
 
     private void spawnStageAliens(int count) {
