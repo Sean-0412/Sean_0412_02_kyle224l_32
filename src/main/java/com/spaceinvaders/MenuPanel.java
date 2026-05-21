@@ -20,7 +20,7 @@ public class MenuPanel extends JPanel implements KeyListener {
     
     private int selectedOption = 0;
     private static final String[] MAIN_MENU_OPTIONS = {"Start Game", "Controls", "About", "Exit"};
-    private static final String[] GAME_MODE_OPTIONS = {"Classic Mode", "Dodging Mode"};
+    private static final String[] GAME_MODE_OPTIONS = {"Classic Mode", "Dodging Mode", "Stage Mode"};
     private static final String[] DIFFICULTY_OPTIONS = {"Easy", "Normal", "Hard"};
     
     private GameFrame gameFrame;
@@ -33,7 +33,7 @@ public class MenuPanel extends JPanel implements KeyListener {
     private static final int STATE_ABOUT = 4;
     
     private int currentState = STATE_MAIN_MENU;
-    private int selectedGameMode = 0; // 0 = Classic, 1 = Dodging
+    private int selectedGameMode = 0; // 0 = Classic, 1 = Dodging, 2 = Stage
     
     public MenuPanel(GameFrame gameFrame) {
         this.gameFrame = gameFrame;
@@ -111,7 +111,7 @@ public class MenuPanel extends JPanel implements KeyListener {
         String dodgeDesc2 = "Game ends if hit by enemies";
         int dw1 = g2.getFontMetrics().stringWidth(dodgeDesc1);
         int dw2 = g2.getFontMetrics().stringWidth(dodgeDesc2);
-        startY = 350;
+        startY = 330;
         if (selectedOption == 1) {
             g2.setColor(new Color(255, 200, 0));
             g2.drawString("► DODGING MODE ◄", (WIDTH - 220) / 2, startY);
@@ -122,6 +122,23 @@ public class MenuPanel extends JPanel implements KeyListener {
         g2.setColor(new Color(150, 200, 255));
         g2.drawString(dodgeDesc1, (WIDTH - dw1) / 2, startY + 50);
         g2.drawString(dodgeDesc2, (WIDTH - dw2) / 2, startY + 75);
+        
+        // Stage Mode
+        String stageDesc1 = "Move freely and dodge enemies";
+        String stageDesc2 = "Enemies spawn randomly each stage";
+        int sw1 = g2.getFontMetrics().stringWidth(stageDesc1);
+        int sw2 = g2.getFontMetrics().stringWidth(stageDesc2);
+        startY = 450;
+        if (selectedOption == 2) {
+            g2.setColor(new Color(255, 200, 0));
+            g2.drawString("► STAGE MODE ◄", (WIDTH - 220) / 2, startY);
+        } else {
+            g2.setColor(new Color(100, 200, 255));
+            g2.drawString("STAGE MODE", (WIDTH - 200) / 2, startY);
+        }
+        g2.setColor(new Color(150, 200, 255));
+        g2.drawString(stageDesc1, (WIDTH - sw1) / 2, startY + 50);
+        g2.drawString(stageDesc2, (WIDTH - sw2) / 2, startY + 75);
         
         // Hint
         g2.setColor(new Color(100, 200, 255));
@@ -189,27 +206,43 @@ public class MenuPanel extends JPanel implements KeyListener {
         String title = "Controls";
         int tw = g2.getFontMetrics().stringWidth(title);
         g2.drawString(title, (WIDTH - tw) / 2, 80);
-        
-        // Control instructions
-        g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 24));
-        
+
         String[] controls = {
-            "← → : Move spaceship",
+            "← → : Move left/right",
+            "↑ ↓ : Move up/down (Dodging/Stage mode)",
             "Space : Shoot",
+            "U : Ultimate",
+            "P : Pause",
             "R : Restart game",
             "Esc : Return to menu"
         };
-        
-        int startY = 180;
+
+        int listWidth = 520;
+        int listHeight = controls.length * 52 + 30;
+        int listX = (WIDTH - listWidth) / 2;
+        int listY = 140;
+
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.fillRoundRect(listX, listY, listWidth, listHeight, 30, 30);
+        g2.setColor(new Color(100, 200, 255, 180));
+        g2.setStroke(new java.awt.BasicStroke(2));
+        g2.drawRoundRect(listX, listY, listWidth, listHeight, 30, 30);
+
+        // Control instructions
+        g2.setColor(new Color(100, 200, 255));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 24));
+        int startY = listY + 45;
         for (int i = 0; i < controls.length; i++) {
-            g2.drawString(controls[i], 150, startY + i * 80);
+            int textWidth = g2.getFontMetrics().stringWidth(controls[i]);
+            g2.drawString(controls[i], (WIDTH - textWidth) / 2, startY + i * 52);
         }
-        
+
         // Return hint
         g2.setColor(new Color(150, 255, 150));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        g2.drawString("Press Enter or Esc to return to menu", 250, 550);
+        g2.setFont(new Font("Consolas", Font.PLAIN, 16));
+        String hint = "Press Enter or Esc to return to menu";
+        int hintWidth = g2.getFontMetrics().stringWidth(hint);
+        g2.drawString(hint, (WIDTH - hintWidth) / 2, listY + listHeight + 50);
     }
     
     private void drawAboutScreen(Graphics2D g2) {

@@ -61,6 +61,21 @@ public class GameFrame extends JFrame {
         
         menuPanel.requestFocusInWindow();
     }
+
+    public void returnToMainMenu() {
+        // Remove game panel
+        remove(gamePanel);
+        
+        // Recreate and show the main menu
+        menuPanel = new MenuPanel(this);
+        add(menuPanel);
+        
+        // Refresh
+        revalidate();
+        repaint();
+        
+        menuPanel.requestFocusInWindow();
+    }
     
     @Deprecated
     public void startGameWithDifficulty(int difficulty) {
