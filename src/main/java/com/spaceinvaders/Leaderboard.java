@@ -25,19 +25,52 @@ public class Leaderboard {
     }
 
     public synchronized void addScore(int score) {
+        addScore(score, false);
+    }
+
+    public synchronized void addScore(int score, boolean twoPlayer) {
         if (score < 0) {
             return;
         }
-        entries.add(new Entry(score, LocalDateTime.now()));
-        Collections.sort(entries);
-        if (entries.size() > MAX_ENTRIES) {
-            entries.subList(MAX_ENTRIES, entries.size()).clear();
-        }
+        entries.add(new Entry(score, twoPlayer, LocalDateTime.now()));
+        normalizeEntries();
         save();
     }
 
     public synchronized List<Entry> getEntries() {
         return new ArrayList<>(entries);
+    }
+
+    public synchronized List<Entry> getEntries(boolean twoPlayer) {
+        List<Entry> filtered = new ArrayList<>();
+        for (Entry entry : entries) {
+            if (entry.isTwoPlayer() == twoPlayer) {
+                filtered.add(entry);
+            }
+        }
+        return filtered;
+    }
+
+    private void normalizeEntries() {
+        Collections.sort(entries);
+        List<Entry> normalized = new ArrayList<>();
+        int singleCount = 0;
+        int twoCount = 0;
+        for (Entry entry : entries) {
+            if (entry.isTwoPlayer()) {
+                if (twoCount < MAX_ENTRIES) {
+                    normalized.add(entry);
+                    twoCount++;
+                }
+            } else {
+                if (singleCount < MAX_ENTRIES) {
+                    normalized.add(entry);
+                    singleCount++;
+                }
+            }
+        }
+        entries.clear();
+        entries.addAll(normalized);
     }
 
     private void load() {
@@ -49,8 +82,8 @@ public class Leaderboard {
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.split("\\|", 2);
-                if (parts.length != 2) {
+                String[] parts = line.split("\\|");
+                if (parts.length < 2) {
                     continue;
                 }
                 int score;
@@ -59,18 +92,20 @@ public class Leaderboard {
                 } catch (NumberFormatException e) {
                     continue;
                 }
+                boolean twoPlayer = false;
                 LocalDateTime timestamp;
-                try {
+                if (parts.length == 2) {
                     timestamp = LocalDateTime.parse(parts[1], TIMESTAMP_FORMAT);
-                } catch (Exception e) {
-                    continue;
+                } else {
+                    String type = parts[1].trim();
+                    if ("T".equalsIgnoreCase(type) || "2".equals(type) || "TWO".equalsIgnoreCase(type) || "TWO_PLAYER".equalsIgnoreCase(type) || "TWO PLAYER".equalsIgnoreCase(type)) {
+                        twoPlayer = true;
+                    }
+                    timestamp = LocalDateTime.parse(parts[2], TIMESTAMP_FORMAT);
                 }
-                entries.add(new Entry(score, timestamp));
+                entries.add(new Entry(score, twoPlayer, timestamp));
             }
-            Collections.sort(entries);
-            if (entries.size() > MAX_ENTRIES) {
-                entries.subList(MAX_ENTRIES, entries.size()).clear();
-            }
+            normalizeEntries();
         } catch (IOException ignored) {
         }
     }
@@ -79,7 +114,8 @@ public class Leaderboard {
         Path path = Paths.get(LEADERBOARD_FILENAME);
         try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
             for (Entry entry : entries) {
-                writer.write(entry.score + "|" + entry.timestamp.format(TIMESTAMP_FORMAT));
+                String typeCode = entry.isTwoPlayer() ? "T" : "S";
+                writer.write(entry.score + "|" + typeCode + "|" + entry.timestamp.format(TIMESTAMP_FORMAT));
                 writer.newLine();
             }
         } catch (IOException ignored) {
@@ -90,13 +126,20 @@ public class Leaderboard {
         private final int score;
         private final LocalDateTime timestamp;
 
-        public Entry(int score, LocalDateTime timestamp) {
+        private final boolean twoPlayer;
+
+        public Entry(int score, boolean twoPlayer, LocalDateTime timestamp) {
             this.score = score;
+            this.twoPlayer = twoPlayer;
             this.timestamp = timestamp;
         }
 
         public int getScore() {
             return score;
+        }
+
+        public boolean isTwoPlayer() {
+            return twoPlayer;
         }
 
         public LocalDateTime getTimestamp() {

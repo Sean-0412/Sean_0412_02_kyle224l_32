@@ -89,8 +89,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private int player2Y;
     private boolean twoPlayer;
     private int alienShootTimer;
-    private int attackBoostRemaining;
     private int playerShotCount;
+    private int player2ShotCount;
+    private int playerAttackBoostRemaining;
+    private int player2AttackBoostRemaining;
+    private int playerAttackMultiplier;
+    private int player2AttackMultiplier;
     private int shieldRemaining;
     private boolean bossSpawned;
     
@@ -174,13 +178,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         this.playerLives = START_LIVES;
         this.player2Lives = START_LIVES;
         this.alienShootTimer = 0;
-        this.attackBoostRemaining = 0;
+        this.playerAttackBoostRemaining = 0;
+        this.player2AttackBoostRemaining = 0;
+        this.playerAttackMultiplier = 1;
+        this.player2AttackMultiplier = 1;
         this.bossSpawned = false;
         this.ultimateActive = false;
         this.ultimateDuration = 0;
         this.ultimateCooldown = 0;
         this.ultimateFireCounter = 0;
         this.playerShotCount = 1;
+        this.player2ShotCount = 1;
         this.shieldRemaining = 0;
         
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -261,13 +269,18 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         player2Bullets.clear();
         enemyBullets.clear();
         powerUps.clear();
-        attackBoostRemaining = 0;
+        playerAttackBoostRemaining = 0;
+        player2AttackBoostRemaining = 0;
+        playerAttackMultiplier = 1;
+        player2AttackMultiplier = 1;
         shieldRemaining = 0;
         bossSpawned = false;
         ultimateActive = false;
         ultimateDuration = 0;
         ultimateCooldown = 0;
         ultimateFireCounter = 0;
+        playerShotCount = 1;
+        player2ShotCount = 1;
         playerX = (WIDTH - PLAYER_WIDTH) / 2;
         playerY = HEIGHT - 70;
         player2X = (WIDTH - PLAYER_WIDTH) / 2;
@@ -326,8 +339,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         updateEnemyBullets();
         updatePowerUps();
         spawnPowerUps();
-        if (attackBoostRemaining > 0) {
-            attackBoostRemaining--;
+        if (playerAttackBoostRemaining > 0) {
+            playerAttackBoostRemaining--;
+            if (playerAttackBoostRemaining == 0) {
+                playerAttackMultiplier = 1;
+            }
+        }
+        if (player2AttackBoostRemaining > 0) {
+            player2AttackBoostRemaining--;
+            if (player2AttackBoostRemaining == 0) {
+                player2AttackMultiplier = 1;
+            }
         }
         if (shieldRemaining > 0) {
             shieldRemaining--;
@@ -361,6 +383,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void updatePlayer() {
+        if (playerLives <= 0) {
+            return;
+        }
         if (moveLeft) {
             playerX -= PLAYER_SPEED;
         }
@@ -399,7 +424,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         if (shootPressed && fireCooldown == 0 && bullets.size() < MAX_BULLETS) {
             int bulletY = playerY - BULLET_HEIGHT;
-            int effectiveShotCount = getEffectiveShotCount();
+            int effectiveShotCount = getEffectiveShotCount(true);
             int shotsToSpawn = Math.min(effectiveShotCount, MAX_BULLETS - bullets.size());
             int[] offsets = getShotOffsets(shotsToSpawn);
             for (int offset : offsets) {
@@ -433,6 +458,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void updatePlayer2() {
+        if (player2Lives <= 0) {
+            return;
+        }
         if (moveLeft2) {
             player2X -= PLAYER_SPEED;
         }
@@ -470,7 +498,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         if (shoot2Pressed && fireCooldown2 == 0 && player2Bullets.size() < MAX_BULLETS) {
             int bulletY = player2Y - BULLET_HEIGHT;
-            int effectiveShotCount = getEffectiveShotCount();
+            int effectiveShotCount = getEffectiveShotCount(false);
             int shotsToSpawn = Math.min(effectiveShotCount, MAX_BULLETS - player2Bullets.size());
             int[] offsets = getShotOffsets(shotsToSpawn);
             for (int offset : offsets) {
@@ -501,12 +529,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
-    private int getEffectiveShotCount() {
-        int count = playerShotCount;
-        if (attackBoostRemaining > 0) {
-            count *= 2;
-        }
-        return Math.max(1, count);
+    private int getEffectiveShotCount(boolean forPlayer1) {
+        int count = forPlayer1 ? playerShotCount : player2ShotCount;
+        int multiplier = forPlayer1 ? playerAttackMultiplier : player2AttackMultiplier;
+        return Math.max(1, count * multiplier);
     }
 
     private int[] getShotOffsets(int shotCount) {
@@ -615,7 +641,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 player2Lives = Math.min(player2Lives + 1, START_LIVES + 3);
             }
         } else if (type == PowerUp.TYPE_ATTACK) {
-            attackBoostRemaining = ATTACK_BOOST_DURATION;
+            if (forPlayer1) {
+                playerAttackMultiplier *= 2;
+                playerAttackBoostRemaining = ATTACK_BOOST_DURATION;
+            } else {
+                player2AttackMultiplier *= 2;
+                player2AttackBoostRemaining = ATTACK_BOOST_DURATION;
+            }
         } else if (type == PowerUp.TYPE_SHIELD) {
             shieldRemaining = SHIELD_DURATION;
         }
@@ -800,8 +832,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         if (!gameOver) {
             gameOver = true;
             gameWin = win;
-            if (gameFrame != null) {
-                gameFrame.getLeaderboard().addScore(score);
+            if (gameFrame != null && gameMode == MODE_STAGE) {
+                gameFrame.getLeaderboard().addScore(score, twoPlayer);
             }
             if (!gameOverSoundPlayed) {
                 gameOverSoundPlayed = true;
@@ -816,6 +848,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         bossSpawned = false;
         if (gameMode == MODE_STAGE) {
             playerShotCount *= 2;
+            player2ShotCount *= 2;
         }
         if (currentLevel < MAX_STAGE_LEVELS) {
             currentLevel++;
@@ -967,8 +1000,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         g2.setColor(new Color(170, 255, 210));
         g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        if (attackBoostRemaining > 0) {
-            g2.drawString("Attack Powerup: " + (attackBoostRemaining / 60) + "s", x, y);
+        if (playerAttackBoostRemaining > 0) {
+            g2.drawString("P1 Attack: " + (playerAttackBoostRemaining / 60) + "s", x, y);
+            y += lineGap;
+        }
+        if (twoPlayer && player2AttackBoostRemaining > 0) {
+            g2.drawString("P2 Attack: " + (player2AttackBoostRemaining / 60) + "s", x, y);
             y += lineGap;
         }
         if (shieldRemaining > 0) {
@@ -1106,50 +1143,50 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void drawPlayer(Graphics2D g2) {
+        boolean dead = playerLives <= 0;
+        Color hullColor = dead ? new Color(140, 140, 140) : new Color(50, 150, 255);
+        Color outlineColor = dead ? new Color(180, 180, 180) : new Color(100, 180, 255);
+        Color cockpitFill = dead ? new Color(190, 190, 190) : new Color(150, 255, 150);
+        Color cockpitOutline = dead ? new Color(170, 170, 170) : new Color(100, 200, 100);
+        Color thrusterColor = dead ? new Color(170, 170, 170) : new Color(255, 100, 50);
+        Color thrusterAccent = dead ? new Color(200, 200, 200) : new Color(255, 200, 100);
+
         int centerX = playerX + PLAYER_WIDTH / 2;
         int centerY = playerY + PLAYER_HEIGHT / 2;
 
-        // 主船體 - 三角形（指向上方）
         int[] hullX = {
-            playerX + PLAYER_WIDTH / 2,           // 前端（尖點）
-            playerX + 5,                          // 左後端
-            playerX + PLAYER_WIDTH - 5             // 右後端
+            playerX + PLAYER_WIDTH / 2,
+            playerX + 5,
+            playerX + PLAYER_WIDTH - 5
         };
         int[] hullY = {
-            playerY,                              // 前端
-            playerY + PLAYER_HEIGHT,              // 左後端
-            playerY + PLAYER_HEIGHT               // 右後端
+            playerY,
+            playerY + PLAYER_HEIGHT,
+            playerY + PLAYER_HEIGHT
         };
-        
+
         Polygon hull = new Polygon(hullX, hullY, 3);
-        g2.setColor(new Color(50, 150, 255));
+        g2.setColor(hullColor);
         g2.fillPolygon(hull);
-        
-        // 船體邊框
-        g2.setColor(new Color(100, 180, 255));
+
+        g2.setColor(outlineColor);
         g2.setStroke(new java.awt.BasicStroke(2));
         g2.drawPolygon(hull);
-        
-        // 駕駛艙（圓形窗口）
+
         int cockpitX = playerX + PLAYER_WIDTH / 2 - 6;
         int cockpitY = playerY + 4;
-        g2.setColor(new Color(150, 255, 150));
+        g2.setColor(cockpitFill);
         g2.fillOval(cockpitX, cockpitY, 12, 8);
-        g2.setColor(new Color(100, 200, 100));
+        g2.setColor(cockpitOutline);
         g2.drawOval(cockpitX, cockpitY, 12, 8);
-        
-        // 左翼推進器
-        g2.setColor(new Color(255, 100, 50));
+
+        g2.setColor(thrusterColor);
         g2.fillRect(playerX + 8, playerY + PLAYER_HEIGHT - 4, 6, 4);
-        
-        // 右翼推進器
         g2.fillRect(playerX + PLAYER_WIDTH - 14, playerY + PLAYER_HEIGHT - 4, 6, 4);
-        
-        // 中央推進器
-        g2.setColor(new Color(255, 200, 100));
+        g2.setColor(thrusterAccent);
         g2.fillRect(playerX + PLAYER_WIDTH / 2 - 2, playerY + PLAYER_HEIGHT - 2, 4, 2);
 
-        if (shieldRemaining > 0) {
+        if (shieldRemaining > 0 && !dead) {
             g2.setColor(new Color(80, 200, 255, 120));
             g2.setStroke(new java.awt.BasicStroke(4));
             g2.drawOval(playerX - 8, playerY - 8, PLAYER_WIDTH + 16, PLAYER_HEIGHT + 16);
@@ -1157,6 +1194,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void drawPlayer2(Graphics2D g2) {
+        boolean dead = player2Lives <= 0;
+        Color hullColor = dead ? new Color(140, 140, 140) : new Color(255, 150, 50);
+        Color outlineColor = dead ? new Color(180, 180, 180) : new Color(255, 200, 100);
+        Color cockpitFill = dead ? new Color(200, 200, 200) : new Color(255, 220, 150);
+        Color cockpitOutline = dead ? new Color(170, 170, 170) : new Color(200, 160, 100);
+        Color thrusterColor = dead ? new Color(190, 190, 190) : new Color(255, 180, 100);
+
         int centerX = player2X + PLAYER_WIDTH / 2;
         int centerY = player2Y + PLAYER_HEIGHT / 2;
 
@@ -1172,20 +1216,20 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         };
 
         Polygon hull = new Polygon(hullX, hullY, 3);
-        g2.setColor(new Color(255, 150, 50));
+        g2.setColor(hullColor);
         g2.fillPolygon(hull);
-        g2.setColor(new Color(255, 200, 100));
+        g2.setColor(outlineColor);
         g2.setStroke(new java.awt.BasicStroke(2));
         g2.drawPolygon(hull);
 
         int cockpitX = player2X + PLAYER_WIDTH / 2 - 6;
         int cockpitY = player2Y + 4;
-        g2.setColor(new Color(255, 220, 150));
+        g2.setColor(cockpitFill);
         g2.fillOval(cockpitX, cockpitY, 12, 8);
-        g2.setColor(new Color(200, 160, 100));
+        g2.setColor(cockpitOutline);
         g2.drawOval(cockpitX, cockpitY, 12, 8);
 
-        g2.setColor(new Color(255, 180, 100));
+        g2.setColor(thrusterColor);
         g2.fillRect(player2X + 8, player2Y + PLAYER_HEIGHT - 4, 6, 4);
         g2.fillRect(player2X + PLAYER_WIDTH - 14, player2Y + PLAYER_HEIGHT - 4, 6, 4);
         g2.fillRect(player2X + PLAYER_WIDTH / 2 - 2, player2Y + PLAYER_HEIGHT - 2, 4, 2);

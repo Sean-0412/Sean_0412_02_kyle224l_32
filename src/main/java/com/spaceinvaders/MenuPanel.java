@@ -23,6 +23,7 @@ public class MenuPanel extends JPanel implements KeyListener {
     private static final String[] GAME_MODE_OPTIONS = {"Classic Mode", "Dodging Mode", "Stage Mode"};
     private static final String[] PLAYER_COUNT_OPTIONS = {"Single Player", "Two Player"};
     private static final String[] DIFFICULTY_OPTIONS = {"Easy", "Normal", "Hard"};
+    private static final String[] LEADERBOARD_MODE_OPTIONS = {"Single Player", "Two Player"};
     
     private GameFrame gameFrame;
     
@@ -38,6 +39,7 @@ public class MenuPanel extends JPanel implements KeyListener {
     private int currentState = STATE_MAIN_MENU;
     private int selectedGameMode = 0; // 0 = Classic, 1 = Dodging, 2 = Stage
     private int selectedPlayerCount = 0; // 0 = Single Player, 1 = Two Player
+    private int selectedLeaderboardMode = 0; // 0 = Single Player, 1 = Two Player
     
     public MenuPanel(GameFrame gameFrame) {
         this.gameFrame = gameFrame;
@@ -290,13 +292,30 @@ public class MenuPanel extends JPanel implements KeyListener {
         g2.drawString(title, (WIDTH - tw) / 2, 100);
 
         g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 24));
-        String subtitle = "Top Scores";
-        int sw = g2.getFontMetrics().stringWidth(subtitle);
-        g2.drawString(subtitle, (WIDTH - sw) / 2, 150);
+        g2.setFont(new Font("Consolas", Font.PLAIN, 16));
+        String note = "Only Stage Mode scores are recorded in the leaderboard.";
+        int nw = g2.getFontMetrics().stringWidth(note);
+        g2.drawString(note, (WIDTH - nw) / 2, 135);
 
-        java.util.List<Leaderboard.Entry> entries = gameFrame.getLeaderboard().getEntries();
-        int startY = 220;
+        int tabWidth = 220;
+        int tabHeight = 50;
+        int tabY = 140;
+        int singleX = (WIDTH / 2) - tabWidth - 10;
+        int twoX = (WIDTH / 2) + 10;
+        for (int i = 0; i < LEADERBOARD_MODE_OPTIONS.length; i++) {
+            int x = (i == 0) ? singleX : twoX;
+            boolean selected = selectedLeaderboardMode == i;
+            g2.setColor(selected ? new Color(255, 200, 0, 180) : new Color(100, 200, 255, 120));
+            g2.fillRoundRect(x, tabY, tabWidth, tabHeight, 20, 20);
+            g2.setColor(selected ? new Color(255, 230, 120) : new Color(220, 240, 255));
+            g2.setFont(new Font("Consolas", selected ? Font.BOLD : Font.PLAIN, 22));
+            String text = LEADERBOARD_MODE_OPTIONS[i];
+            int textW = g2.getFontMetrics().stringWidth(text);
+            g2.drawString(text, x + (tabWidth - textW) / 2, tabY + 34);
+        }
+
+        java.util.List<Leaderboard.Entry> entries = gameFrame.getLeaderboard().getEntries(selectedLeaderboardMode == 1);
+        int startY = 240;
         g2.setFont(new Font("Consolas", Font.PLAIN, 26));
         if (entries.isEmpty()) {
             String emptyText = "No scores yet. Play a game to add your score!";
@@ -313,7 +332,7 @@ public class MenuPanel extends JPanel implements KeyListener {
 
         g2.setColor(new Color(150, 255, 150));
         g2.setFont(new Font("Consolas", Font.PLAIN, 16));
-        String hint = "Press Enter or Esc to return to menu";
+        String hint = "Use ←→ to switch mode. Enter/Esc to return.";
         int hw = g2.getFontMetrics().stringWidth(hint);
         g2.drawString(hint, (WIDTH - hw) / 2, 560);
     }
@@ -440,6 +459,7 @@ public class MenuPanel extends JPanel implements KeyListener {
                     repaint();
                     break;
                 case 1: // Leaderboard
+                    selectedLeaderboardMode = 0;
                     currentState = STATE_LEADERBOARD;
                     repaint();
                     break;
@@ -529,7 +549,13 @@ public class MenuPanel extends JPanel implements KeyListener {
     }
     
     private void handleLeaderboardInput(int code) {
-        if (code == KeyEvent.VK_ENTER || code == KeyEvent.VK_ESCAPE) {
+        if (code == KeyEvent.VK_LEFT || code == KeyEvent.VK_UP) {
+            selectedLeaderboardMode = 0;
+            repaint();
+        } else if (code == KeyEvent.VK_RIGHT || code == KeyEvent.VK_DOWN) {
+            selectedLeaderboardMode = 1;
+            repaint();
+        } else if (code == KeyEvent.VK_ENTER || code == KeyEvent.VK_ESCAPE) {
             currentState = STATE_MAIN_MENU;
             selectedOption = 0;
             repaint();
