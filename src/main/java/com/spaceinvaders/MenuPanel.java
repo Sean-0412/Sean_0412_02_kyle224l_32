@@ -19,8 +19,9 @@ public class MenuPanel extends JPanel implements KeyListener {
     private static final int HEIGHT = 600;
     
     private int selectedOption = 0;
-    private static final String[] MAIN_MENU_OPTIONS = {"Start Game", "Controls", "About", "Exit"};
+    private static final String[] MAIN_MENU_OPTIONS = {"Start Game", "Leaderboard", "Controls", "About", "Exit"};
     private static final String[] GAME_MODE_OPTIONS = {"Classic Mode", "Dodging Mode", "Stage Mode"};
+    private static final String[] PLAYER_COUNT_OPTIONS = {"Single Player", "Two Player"};
     private static final String[] DIFFICULTY_OPTIONS = {"Easy", "Normal", "Hard"};
     
     private GameFrame gameFrame;
@@ -28,12 +29,15 @@ public class MenuPanel extends JPanel implements KeyListener {
     // Menu states
     private static final int STATE_MAIN_MENU = 0;
     private static final int STATE_GAME_MODE = 1;
-    private static final int STATE_DIFFICULTY = 2;
-    private static final int STATE_CONTROLS = 3;
-    private static final int STATE_ABOUT = 4;
+    private static final int STATE_PLAYER_COUNT = 2;
+    private static final int STATE_DIFFICULTY = 3;
+    private static final int STATE_CONTROLS = 4;
+    private static final int STATE_ABOUT = 5;
+    private static final int STATE_LEADERBOARD = 6;
     
     private int currentState = STATE_MAIN_MENU;
     private int selectedGameMode = 0; // 0 = Classic, 1 = Dodging, 2 = Stage
+    private int selectedPlayerCount = 0; // 0 = Single Player, 1 = Two Player
     
     public MenuPanel(GameFrame gameFrame) {
         this.gameFrame = gameFrame;
@@ -64,6 +68,9 @@ public class MenuPanel extends JPanel implements KeyListener {
             case STATE_GAME_MODE:
                 drawGameModeMenu(g2);
                 break;
+            case STATE_PLAYER_COUNT:
+                drawPlayerCountMenu(g2);
+                break;
             case STATE_DIFFICULTY:
                 drawDifficultyMenu(g2);
                 break;
@@ -72,6 +79,9 @@ public class MenuPanel extends JPanel implements KeyListener {
                 break;
             case STATE_ABOUT:
                 drawAboutScreen(g2);
+                break;
+            case STATE_LEADERBOARD:
+                drawLeaderboardScreen(g2);
                 break;
         }
     }
@@ -147,116 +157,173 @@ public class MenuPanel extends JPanel implements KeyListener {
         int hw = g2.getFontMetrics().stringWidth(hint);
         g2.drawString(hint, (WIDTH - hw) / 2, 550);
     }
-    
+
+    private void drawPlayerCountMenu(Graphics2D g2) {
+        drawTitle(g2, "Player Count", 100);
+
+        int startY = 250;
+        for (int i = 0; i < PLAYER_COUNT_OPTIONS.length; i++) {
+            drawMenuItem(g2, PLAYER_COUNT_OPTIONS[i], i, startY + i * 100);
+        }
+
+        drawHint(g2, "Use ↑↓ to select, Enter to confirm, Esc to return");
+    }
+
     private void drawMainMenu(Graphics2D g2) {
-        // Title
-        g2.setColor(new Color(0, 255, 150));
-        g2.setFont(new Font("Consolas", Font.BOLD, 70));
-        String title = "SPACE INVADERS";
-        int tw = g2.getFontMetrics().stringWidth(title);
-        g2.drawString(title, (WIDTH - tw) / 2, 100);
-        
-        // Subtitle
-        g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 20));
-        String subtitle = "Classic Space Shooting Game";
-        int sw = g2.getFontMetrics().stringWidth(subtitle);
-        g2.drawString(subtitle, (WIDTH - sw) / 2, 140);
-        
-        // Menu options
+        drawTitle(g2, "SPACE INVADERS", 100);
+        drawSubTitle(g2, "Classic Space Shooting Game", 140);
+
         int startY = 220;
         for (int i = 0; i < MAIN_MENU_OPTIONS.length; i++) {
             drawMenuItem(g2, MAIN_MENU_OPTIONS[i], i, startY + i * 80);
         }
-        
-        // Hint
-        g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        String hint = "Use ↑↓ to select, Enter to confirm";
-        int hw = g2.getFontMetrics().stringWidth(hint);
-        g2.drawString(hint, (WIDTH - hw) / 2, 550);
+
+        drawHint(g2, "Use ↑↓ to select, Enter to confirm");
     }
     
     private void drawDifficultyMenu(Graphics2D g2) {
-        // Title
-        g2.setColor(new Color(0, 255, 150));
-        g2.setFont(new Font("Consolas", Font.BOLD, 60));
-        String title = "Select Difficulty";
-        int tw = g2.getFontMetrics().stringWidth(title);
-        g2.drawString(title, (WIDTH - tw) / 2, 100);
-        
-        // Difficulty options
+        drawTitle(g2, "Select Difficulty", 100);
+
         int startY = 250;
         for (int i = 0; i < DIFFICULTY_OPTIONS.length; i++) {
             drawMenuItem(g2, DIFFICULTY_OPTIONS[i], i, startY + i * 100);
         }
-        
-        // Hint
-        g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        String hint = "Esc to return to menu";
-        int hw = g2.getFontMetrics().stringWidth(hint);
-        g2.drawString(hint, (WIDTH - hw) / 2, 550);
+
+        drawHint(g2, "Esc to return to menu");
     }
     
     private void drawControlsScreen(Graphics2D g2) {
-        // Title
-        g2.setColor(new Color(0, 255, 150));
-        g2.setFont(new Font("Consolas", Font.BOLD, 50));
-        String title = "Controls";
-        int tw = g2.getFontMetrics().stringWidth(title);
-        g2.drawString(title, (WIDTH - tw) / 2, 80);
+        drawTitle(g2, "Controls", 80);
 
-        String[] controls = {
-            "← → : Move left/right",
-            "↑ ↓ : Move up/down (Dodging/Stage mode)",
-            "Space : Shoot",
-            "U : Ultimate",
+        String[] player1 = {
+            "P1: ← → : Move left/right",
+            "P1: ↑ ↓ : Move up/down (Dodging/Stage mode)",
+            "P1: Space : Shoot"
+        };
+        String[] player2 = {
+            "P2: W A S D : Move",
+            "P2: H : Shoot"
+        };
+        String[] singlePlayer = {
+            "U : Ultimate (Single Player Only)"
+        };
+        String[] common = {
             "P : Pause",
             "R : Restart game",
             "Esc : Return to menu"
         };
 
-        int listWidth = 520;
-        int listHeight = controls.length * 52 + 30;
+        int lineHeight = 30;
+        int sectionGap = 26;
+        int hintHeight = 80;
+        int listHeight = 40 + player1.length * lineHeight + sectionGap + player2.length * lineHeight + sectionGap + singlePlayer.length * lineHeight + sectionGap + common.length * lineHeight + hintHeight;
+        int listWidth = 560;
         int listX = (WIDTH - listWidth) / 2;
         int listY = 140;
 
-        g2.setColor(new Color(0, 0, 0, 180));
-        g2.fillRoundRect(listX, listY, listWidth, listHeight, 30, 30);
-        g2.setColor(new Color(100, 200, 255, 180));
+        g2.setColor(new Color(0, 0, 0, 200));
+        g2.fillRoundRect(listX, listY, listWidth, listHeight, 28, 28);
+        g2.setColor(new Color(100, 200, 255, 200));
         g2.setStroke(new java.awt.BasicStroke(2));
-        g2.drawRoundRect(listX, listY, listWidth, listHeight, 30, 30);
+        g2.drawRoundRect(listX, listY, listWidth, listHeight, 28, 28);
 
-        // Control instructions
-        g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 24));
-        int startY = listY + 45;
-        for (int i = 0; i < controls.length; i++) {
-            int textWidth = g2.getFontMetrics().stringWidth(controls[i]);
-            g2.drawString(controls[i], (WIDTH - textWidth) / 2, startY + i * 52);
+        int y = listY + 45;
+        g2.setColor(new Color(170, 255, 210));
+        g2.setFont(new Font("Consolas", Font.BOLD, 22));
+        String player1Title = "PLAYER 1";
+        g2.drawString(player1Title, listX + 30, y);
+        y += lineHeight;
+
+        g2.setFont(new Font("Consolas", Font.PLAIN, 20));
+        for (String line : player1) {
+            g2.drawString(line, listX + 30, y);
+            y += lineHeight;
         }
 
-        // Return hint
+        y += 10;
+        g2.setFont(new Font("Consolas", Font.BOLD, 22));
+        String player2Title = "PLAYER 2";
+        g2.drawString(player2Title, listX + 30, y);
+        y += lineHeight;
+
+        g2.setFont(new Font("Consolas", Font.PLAIN, 20));
+        for (String line : player2) {
+            g2.drawString(line, listX + 30, y);
+            y += lineHeight;
+        }
+
+        y += 10;
+        g2.setFont(new Font("Consolas", Font.BOLD, 22));
+        g2.drawString("SINGLE PLAYER", listX + 30, y);
+        y += lineHeight;
+
+        g2.setFont(new Font("Consolas", Font.PLAIN, 20));
+        for (String line : singlePlayer) {
+            g2.drawString(line, listX + 30, y);
+            y += lineHeight;
+        }
+
+        y += 10;
+        g2.setFont(new Font("Consolas", Font.BOLD, 22));
+        g2.drawString("COMMON", listX + 30, y);
+        y += lineHeight;
+
+        g2.setFont(new Font("Consolas", Font.PLAIN, 20));
+        for (String line : common) {
+            g2.drawString(line, listX + 30, y);
+            y += lineHeight;
+        }
+
+        y += 20;
         g2.setColor(new Color(150, 255, 150));
         g2.setFont(new Font("Consolas", Font.PLAIN, 16));
         String hint = "Press Enter or Esc to return to menu";
-        int hintWidth = g2.getFontMetrics().stringWidth(hint);
-        g2.drawString(hint, (WIDTH - hintWidth) / 2, listY + listHeight + 50);
+        int textWidth = g2.getFontMetrics().stringWidth(hint);
+        g2.drawString(hint, (WIDTH - textWidth) / 2, y);
+    }
+    
+    private void drawLeaderboardScreen(Graphics2D g2) {
+        g2.setColor(new Color(0, 255, 150));
+        g2.setFont(new Font("Consolas", Font.BOLD, 60));
+        String title = "Leaderboard";
+        int tw = g2.getFontMetrics().stringWidth(title);
+        g2.drawString(title, (WIDTH - tw) / 2, 100);
+
+        g2.setColor(new Color(100, 200, 255));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 24));
+        String subtitle = "Top Scores";
+        int sw = g2.getFontMetrics().stringWidth(subtitle);
+        g2.drawString(subtitle, (WIDTH - sw) / 2, 150);
+
+        java.util.List<Leaderboard.Entry> entries = gameFrame.getLeaderboard().getEntries();
+        int startY = 220;
+        g2.setFont(new Font("Consolas", Font.PLAIN, 26));
+        if (entries.isEmpty()) {
+            String emptyText = "No scores yet. Play a game to add your score!";
+            int ew = g2.getFontMetrics().stringWidth(emptyText);
+            g2.drawString(emptyText, (WIDTH - ew) / 2, startY);
+        } else {
+            for (int i = 0; i < entries.size(); i++) {
+                Leaderboard.Entry entry = entries.get(i);
+                String line = String.format("%2d. %6d  %s", i + 1, entry.getScore(), entry.getTimestamp().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd HH:mm")));
+                int lw = g2.getFontMetrics().stringWidth(line);
+                g2.drawString(line, (WIDTH - lw) / 2, startY + i * 40);
+            }
+        }
+
+        g2.setColor(new Color(150, 255, 150));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 16));
+        String hint = "Press Enter or Esc to return to menu";
+        int hw = g2.getFontMetrics().stringWidth(hint);
+        g2.drawString(hint, (WIDTH - hw) / 2, 560);
     }
     
     private void drawAboutScreen(Graphics2D g2) {
-        // Title
-        g2.setColor(new Color(0, 255, 150));
-        g2.setFont(new Font("Consolas", Font.BOLD, 50));
-        String title = "About Game";
-        int tw = g2.getFontMetrics().stringWidth(title);
-        g2.drawString(title, (WIDTH - tw) / 2, 80);
-        
-        // About info
+        drawTitle(g2, "About Game", 80);
+
         g2.setColor(new Color(100, 200, 255));
         g2.setFont(new Font("Consolas", Font.PLAIN, 24));
-        
+
         String[] aboutInfo = {
             "SPACE INVADERS",
             "Classic Space Shooting Game",
@@ -267,7 +334,7 @@ public class MenuPanel extends JPanel implements KeyListener {
             "",
             "Thank you for playing!"
         };
-        
+
         int startY = 150;
         for (int i = 0; i < aboutInfo.length; i++) {
             if (aboutInfo[i].isEmpty()) {
@@ -278,49 +345,57 @@ public class MenuPanel extends JPanel implements KeyListener {
                 startY += 50;
             }
         }
-        
-        // Return hint
-        g2.setColor(new Color(150, 255, 150));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        g2.drawString("Press Enter or Esc to return to menu", 250, 550);
+
+        drawHint(g2, "Press Enter or Esc to return to menu");
     }
     
     private void drawMenuItem(Graphics2D g2, String text, int index, int y) {
+        Font menuFont = selectedOption == index ? new Font("Consolas", Font.BOLD, 36) : new Font("Consolas", Font.PLAIN, 36);
+        g2.setFont(menuFont);
+        Rectangle2D bounds = g2.getFontMetrics().getStringBounds(text, g2);
+        int textX = (WIDTH - (int) bounds.getWidth()) / 2;
+        int boxX = textX - 30;
+        int boxY = y - 35;
+        int boxWidth = (int) bounds.getWidth() + 60;
+        int boxHeight = 55;
+
         if (selectedOption == index) {
-            // 高亮選中的選項
-            g2.setColor(new Color(255, 200, 0));
-            g2.setFont(new Font("Consolas", Font.BOLD, 36));
-            
-            // 繪製背景框
-            Rectangle2D bounds = g2.getFontMetrics().getStringBounds(text, g2);
-            int boxX = (WIDTH - (int)bounds.getWidth()) / 2 - 30;
-            int boxY = y - 35;
-            int boxWidth = (int)bounds.getWidth() + 60;
-            int boxHeight = 55;
-            
-            g2.setColor(new Color(150, 120, 0, 100));
-            g2.fillRect(boxX, boxY, boxWidth, boxHeight);
+            g2.setColor(new Color(150, 120, 0, 120));
+            g2.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 16, 16);
             g2.setColor(new Color(255, 200, 0));
             g2.setStroke(new java.awt.BasicStroke(3));
-            g2.drawRect(boxX, boxY, boxWidth, boxHeight);
-            
-            // 繪製文字
-            g2.setColor(new Color(255, 200, 0));
-            int tw = g2.getFontMetrics().stringWidth(text);
-            g2.drawString(text, (WIDTH - tw) / 2, y);
-            
-            // 繪製箭頭
+            g2.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 16, 16);
+            g2.setColor(new Color(255, 230, 120));
+            g2.drawString(text, textX, y);
             g2.drawString("◆", boxX - 50, y);
             g2.drawString("◆", boxX + boxWidth + 30, y);
         } else {
-            // 未選中的選項
             g2.setColor(new Color(100, 200, 255));
-            g2.setFont(new Font("Consolas", Font.PLAIN, 36));
-            int tw = g2.getFontMetrics().stringWidth(text);
-            g2.drawString(text, (WIDTH - tw) / 2, y);
+            g2.drawString(text, textX, y);
         }
     }
-    
+
+    private void drawTitle(Graphics2D g2, String title, int y) {
+        g2.setColor(new Color(0, 255, 150));
+        g2.setFont(new Font("Consolas", Font.BOLD, 70));
+        int tw = g2.getFontMetrics().stringWidth(title);
+        g2.drawString(title, (WIDTH - tw) / 2, y);
+    }
+
+    private void drawSubTitle(Graphics2D g2, String text, int y) {
+        g2.setColor(new Color(100, 200, 255));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 20));
+        int tw = g2.getFontMetrics().stringWidth(text);
+        g2.drawString(text, (WIDTH - tw) / 2, y);
+    }
+
+    private void drawHint(Graphics2D g2, String text) {
+        g2.setColor(new Color(150, 255, 150));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
+        int tw = g2.getFontMetrics().stringWidth(text);
+        g2.drawString(text, (WIDTH - tw) / 2, 560);
+    }
+
     @Override
     public void keyPressed(KeyEvent e) {
         int code = e.getKeyCode();
@@ -332,6 +407,9 @@ public class MenuPanel extends JPanel implements KeyListener {
             case STATE_GAME_MODE:
                 handleGameModeInput(code);
                 break;
+            case STATE_PLAYER_COUNT:
+                handlePlayerCountInput(code);
+                break;
             case STATE_DIFFICULTY:
                 handleDifficultyInput(code);
                 break;
@@ -340,6 +418,9 @@ public class MenuPanel extends JPanel implements KeyListener {
                 break;
             case STATE_ABOUT:
                 handleAboutInput(code);
+                break;
+            case STATE_LEADERBOARD:
+                handleLeaderboardInput(code);
                 break;
         }
     }
@@ -358,15 +439,19 @@ public class MenuPanel extends JPanel implements KeyListener {
                     selectedOption = 0; // Reset to first mode
                     repaint();
                     break;
-                case 1: // Controls
+                case 1: // Leaderboard
+                    currentState = STATE_LEADERBOARD;
+                    repaint();
+                    break;
+                case 2: // Controls
                     currentState = STATE_CONTROLS;
                     repaint();
                     break;
-                case 2: // About
+                case 3: // About
                     currentState = STATE_ABOUT;
                     repaint();
                     break;
-                case 3: // Exit
+                case 4: // Exit
                     System.exit(0);
                     break;
             }
@@ -382,8 +467,8 @@ public class MenuPanel extends JPanel implements KeyListener {
             repaint();
         } else if (code == KeyEvent.VK_ENTER) {
             selectedGameMode = selectedOption;
-            currentState = STATE_DIFFICULTY;
-            selectedOption = 1; // Default to Normal
+            currentState = STATE_PLAYER_COUNT;
+            selectedOption = selectedPlayerCount;
             repaint();
         } else if (code == KeyEvent.VK_ESCAPE) {
             currentState = STATE_MAIN_MENU;
@@ -402,8 +487,8 @@ public class MenuPanel extends JPanel implements KeyListener {
         } else if (code == KeyEvent.VK_ENTER) {
             startGame();
         } else if (code == KeyEvent.VK_ESCAPE) {
-            currentState = STATE_GAME_MODE;
-            selectedOption = selectedGameMode;
+            currentState = STATE_PLAYER_COUNT;
+            selectedOption = selectedPlayerCount;
             repaint();
         }
     }
@@ -412,6 +497,25 @@ public class MenuPanel extends JPanel implements KeyListener {
         if (code == KeyEvent.VK_ENTER || code == KeyEvent.VK_ESCAPE) {
             currentState = STATE_MAIN_MENU;
             selectedOption = 0;
+            repaint();
+        }
+    }
+
+    private void handlePlayerCountInput(int code) {
+        if (code == KeyEvent.VK_UP) {
+            selectedOption = (selectedOption - 1 + PLAYER_COUNT_OPTIONS.length) % PLAYER_COUNT_OPTIONS.length;
+            repaint();
+        } else if (code == KeyEvent.VK_DOWN) {
+            selectedOption = (selectedOption + 1) % PLAYER_COUNT_OPTIONS.length;
+            repaint();
+        } else if (code == KeyEvent.VK_ENTER) {
+            selectedPlayerCount = selectedOption;
+            currentState = STATE_DIFFICULTY;
+            selectedOption = 1;
+            repaint();
+        } else if (code == KeyEvent.VK_ESCAPE) {
+            currentState = STATE_GAME_MODE;
+            selectedOption = selectedGameMode;
             repaint();
         }
     }
@@ -424,8 +528,16 @@ public class MenuPanel extends JPanel implements KeyListener {
         }
     }
     
+    private void handleLeaderboardInput(int code) {
+        if (code == KeyEvent.VK_ENTER || code == KeyEvent.VK_ESCAPE) {
+            currentState = STATE_MAIN_MENU;
+            selectedOption = 0;
+            repaint();
+        }
+    }
+    
     private void startGame() {
-        gameFrame.startGameWithSettings(selectedGameMode, selectedOption);
+        gameFrame.startGameWithSettings(selectedGameMode, selectedOption, selectedPlayerCount == 1);
     }
     
     @Override
