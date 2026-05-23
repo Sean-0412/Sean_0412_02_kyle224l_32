@@ -41,6 +41,11 @@ public class SoundPlayer {
         stopBackgroundMusic();
         playWavFileAsBackgroundMusic("resouce/boss.wav");
     }
+
+    public static void playMenu() {
+        stopBackgroundMusic();
+        playWavFileAsBackgroundMusic("resouce/主畫面背景.wav");
+    }
     
     public static void playDefeat() {
         playWavFile("resouce/戰敗.wav", false);

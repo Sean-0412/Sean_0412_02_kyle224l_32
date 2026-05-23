@@ -34,13 +34,13 @@ public class GameRenderer {
         // Player 1 bullets
         g2.setColor(java.awt.Color.WHITE);
         for (Bullet bullet : gamePanel.getPlayer1().getBullets()) {
-            g2.fillRect(bullet.x, bullet.y, 4, 12);
+            g2.fillRect(bullet.x, bullet.y, Bullet.WIDTH, Bullet.HEIGHT);
         }
         // Player 2 bullets
         if (gamePanel.isTwoPlayer()) {
             g2.setColor(new java.awt.Color(100, 255, 255));
             for (Bullet bullet : gamePanel.getPlayer2().getBullets()) {
-                g2.fillRect(bullet.x, bullet.y, 4, 12);
+                g2.fillRect(bullet.x, bullet.y, Bullet.WIDTH, Bullet.HEIGHT);
             }
         }
     }

@@ -150,6 +150,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         if (entityManager.areAliensEmpty()) {
             if (gameMode == MODE_STAGE) {
                 if (remainingStageAliens <= 0) {
+                    if (entityManager.isBossSpawnPending()) {
+                        return;
+                    }
                     if (!entityManager.isBossSpawned()) {
                         entityManager.spawnBoss();
                         return;
