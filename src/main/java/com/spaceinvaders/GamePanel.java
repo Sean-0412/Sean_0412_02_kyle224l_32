@@ -57,6 +57,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private static final int POWERUP_SIZE = 24;
     private static final int POWERUP_FALL_SPEED = 2;
     private static final int POWERUP_SPAWN_RATE = 1200;
+    private static final int POWERUP_STAGE_RATE_REDUCTION = 120; // stage increases drop chance
+    private static final int POWERUP_MIN_STAGE_SPAWN_RATE = 200;
     private static final int ATTACK_BOOST_DURATION = 600;
     private static final int SHIELD_DURATION = 300; // 5 seconds (300 frames at 60fps)
 
@@ -77,14 +79,22 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private final Timer gameTimer;
     private final List<Alien> aliens = new ArrayList<Alien>();
     private final List<Bullet> bullets = new ArrayList<Bullet>();
+    private final List<Bullet> player2Bullets = new ArrayList<Bullet>();
     private final List<Bullet> enemyBullets = new ArrayList<Bullet>();
     private final List<PowerUp> powerUps = new ArrayList<PowerUp>();
 
     private int playerX;
     private int playerY;
+    private int player2X;
+    private int player2Y;
+    private boolean twoPlayer;
     private int alienShootTimer;
-    private int attackBoostRemaining;
     private int playerShotCount;
+    private int player2ShotCount;
+    private int playerAttackBoostRemaining;
+    private int player2AttackBoostRemaining;
+    private int playerAttackMultiplier;
+    private int player2AttackMultiplier;
     private int shieldRemaining;
     private boolean bossSpawned;
     
@@ -99,11 +109,19 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private boolean moveDown;
     private boolean shootPressed;
 
+    private boolean moveLeft2;
+    private boolean moveRight2;
+    private boolean moveUp2;
+    private boolean moveDown2;
+    private boolean shoot2Pressed;
+    private int fireCooldown2;
+
     private static final int START_LIVES = 5;
 
     private int fireCooldown;
     private int score;
-    private int lives;
+    private int playerLives;
+    private int player2Lives;
 
     private boolean gameOver;
     private boolean gameWin;
@@ -147,30 +165,40 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private GameFrame gameFrame; // Reference to parent frame
 
     public GamePanel() {
-        this(null, MODE_CLASSIC, 1); // Default to Classic mode with Normal difficulty
+        this(null, MODE_CLASSIC, 1, false); // Default to Classic mode with Normal difficulty
     }
     
     public GamePanel(int gameMode, int difficulty) {
-        this(null, gameMode, difficulty);
+        this(null, gameMode, difficulty, false);
     }
     
     public GamePanel(GameFrame gameFrame, int gameMode, int difficulty) {
+        this(gameFrame, gameMode, difficulty, false);
+    }
+    
+    public GamePanel(GameFrame gameFrame, int gameMode, int difficulty, boolean twoPlayer) {
         String modeName = gameMode == MODE_CLASSIC ? "Classic" : (gameMode == MODE_DODGING ? "Dodging" : "Stage");
-        System.out.println("GamePanel: Constructor starting... (Mode: " + modeName + ", Difficulty: " + difficulty + ")");
+        System.out.println("GamePanel: Constructor starting... (Mode: " + modeName + ", Difficulty: " + difficulty + ", Two Player: " + twoPlayer + ")");
         this.gameFrame = gameFrame;
         this.gameMode = gameMode;
         this.difficulty = difficulty;
+        this.twoPlayer = twoPlayer;
         this.safeLineY = HEIGHT - 70;
         this.currentLevel = 1;
-        this.lives = START_LIVES;
+        this.playerLives = START_LIVES;
+        this.player2Lives = START_LIVES;
         this.alienShootTimer = 0;
-        this.attackBoostRemaining = 0;
+        this.playerAttackBoostRemaining = 0;
+        this.player2AttackBoostRemaining = 0;
+        this.playerAttackMultiplier = 1;
+        this.player2AttackMultiplier = 1;
         this.bossSpawned = false;
         this.ultimateActive = false;
         this.ultimateDuration = 0;
         this.ultimateCooldown = 0;
         this.ultimateFireCounter = 0;
         this.playerShotCount = 1;
+        this.player2ShotCount = 1;
         this.shieldRemaining = 0;
         
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -180,6 +208,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         playerX = (WIDTH - PLAYER_WIDTH) / 2;
         playerY = HEIGHT - 70;
+        player2X = (WIDTH - PLAYER_WIDTH) / 2;
+        player2Y = HEIGHT - 110;
 
         System.out.println("GamePanel: Initializing aliens...");
         initAliens();
@@ -252,13 +282,18 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void restartGame() {
-        lives = START_LIVES;
+        playerLives = START_LIVES;
+        player2Lives = START_LIVES;
         score = 0;
         currentLevel = 1;
         bullets.clear();
+        player2Bullets.clear();
         enemyBullets.clear();
         powerUps.clear();
-        attackBoostRemaining = 0;
+        playerAttackBoostRemaining = 0;
+        player2AttackBoostRemaining = 0;
+        playerAttackMultiplier = 1;
+        player2AttackMultiplier = 1;
         shieldRemaining = 0;
         bossSpawned = false;
         dodgingBossSpawned = false;
@@ -266,8 +301,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         ultimateDuration = 0;
         ultimateCooldown = 0;
         ultimateFireCounter = 0;
+        playerShotCount = 1;
+        player2ShotCount = 1;
         playerX = (WIDTH - PLAYER_WIDTH) / 2;
         playerY = HEIGHT - 70;
+        player2X = (WIDTH - PLAYER_WIDTH) / 2;
+        player2Y = HEIGHT - 110;
         gameOver = false;
         gameWin = false;
         gameOverSoundPlayed = false;
@@ -275,13 +314,19 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         bossMusicPlayed = false;
         defeatSoundPlayed = false;
         fireCooldown = 0;
+        fireCooldown2 = 0;
         alienShootTimer = 0;
         playerShotCount = 1;
         moveLeft = false;
         moveRight = false;
         moveUp = false;
         moveDown = false;
+        moveLeft2 = false;
+        moveRight2 = false;
+        moveUp2 = false;
+        moveDown2 = false;
         shootPressed = false;
+        shoot2Pressed = false;
         isPaused = false;
         resumeCountdown = 0;
         initAliens();
@@ -312,12 +357,24 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
 
         updatePlayer();
+        if (twoPlayer) {
+            updatePlayer2();
+        }
         updateBullets();
         updateEnemyBullets();
         updatePowerUps();
         spawnPowerUps();
-        if (attackBoostRemaining > 0) {
-            attackBoostRemaining--;
+        if (playerAttackBoostRemaining > 0) {
+            playerAttackBoostRemaining--;
+            if (playerAttackBoostRemaining == 0) {
+                playerAttackMultiplier = 1;
+            }
+        }
+        if (player2AttackBoostRemaining > 0) {
+            player2AttackBoostRemaining--;
+            if (player2AttackBoostRemaining == 0) {
+                player2AttackMultiplier = 1;
+            }
         }
         if (shieldRemaining > 0) {
             shieldRemaining--;
@@ -345,9 +402,15 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         if (fireCooldown > 0) {
             fireCooldown--;
         }
+        if (fireCooldown2 > 0) {
+            fireCooldown2--;
+        }
     }
 
     private void updatePlayer() {
+        if (playerLives <= 0) {
+            return;
+        }
         if (moveLeft) {
             playerX -= PLAYER_SPEED;
         }
@@ -386,7 +449,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         if (shootPressed && fireCooldown == 0 && bullets.size() < MAX_BULLETS) {
             int bulletY = playerY - BULLET_HEIGHT;
-            int effectiveShotCount = getEffectiveShotCount();
+            int effectiveShotCount = getEffectiveShotCount(true);
             int shotsToSpawn = Math.min(effectiveShotCount, MAX_BULLETS - bullets.size());
             int[] offsets = getShotOffsets(shotsToSpawn);
             for (int offset : offsets) {
@@ -419,6 +482,58 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
+    private void updatePlayer2() {
+        if (player2Lives <= 0) {
+            return;
+        }
+        if (moveLeft2) {
+            player2X -= PLAYER_SPEED;
+        }
+        if (moveRight2) {
+            player2X += PLAYER_SPEED;
+        }
+
+        // Allow full movement in dodging and stage modes
+        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
+            if (moveUp2) {
+                player2Y -= PLAYER_VERTICAL_SPEED;
+            }
+            if (moveDown2) {
+                player2Y += PLAYER_VERTICAL_SPEED;
+            }
+        }
+
+        if (player2X < 0) {
+            player2X = 0;
+        }
+        if (player2X > WIDTH - PLAYER_WIDTH) {
+            player2X = WIDTH - PLAYER_WIDTH;
+        }
+
+        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
+            if (player2Y < 50) {
+                player2Y = 50;
+            }
+            if (player2Y > HEIGHT - PLAYER_HEIGHT - 10) {
+                player2Y = HEIGHT - PLAYER_HEIGHT - 10;
+            }
+        } else {
+            player2Y = safeLineY;
+        }
+
+        if (shoot2Pressed && fireCooldown2 == 0 && player2Bullets.size() < MAX_BULLETS) {
+            int bulletY = player2Y - BULLET_HEIGHT;
+            int effectiveShotCount = getEffectiveShotCount(false);
+            int shotsToSpawn = Math.min(effectiveShotCount, MAX_BULLETS - player2Bullets.size());
+            int[] offsets = getShotOffsets(shotsToSpawn);
+            for (int offset : offsets) {
+                player2Bullets.add(new Bullet(player2X + offset, bulletY));
+            }
+            fireCooldown2 = 10;
+            SoundPlayer.playShoot();
+        }
+    }
+
     private void updateBullets() {
         Iterator<Bullet> iterator = bullets.iterator();
         while (iterator.hasNext()) {
@@ -428,14 +543,21 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 iterator.remove();
             }
         }
+
+        Iterator<Bullet> player2Iterator = player2Bullets.iterator();
+        while (player2Iterator.hasNext()) {
+            Bullet bullet = player2Iterator.next();
+            bullet.update();
+            if (bullet.y + Bullet.HEIGHT < 0) {
+                player2Iterator.remove();
+            }
+        }
     }
 
-    private int getEffectiveShotCount() {
-        int count = playerShotCount;
-        if (attackBoostRemaining > 0) {
-            count *= 2;
-        }
-        return Math.max(1, count);
+    private int getEffectiveShotCount(boolean forPlayer1) {
+        int count = forPlayer1 ? playerShotCount : player2ShotCount;
+        int multiplier = forPlayer1 ? playerAttackMultiplier : player2AttackMultiplier;
+        return Math.max(1, count * multiplier);
     }
 
     private int[] getShotOffsets(int shotCount) {
@@ -493,6 +615,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private void updatePowerUps() {
         Iterator<PowerUp> iterator = powerUps.iterator();
         Rectangle2D playerRect = new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
+        Rectangle2D player2Rect = new Rectangle2D.Double(player2X, player2Y, PLAYER_WIDTH, PLAYER_HEIGHT);
         while (iterator.hasNext()) {
             PowerUp powerUp = iterator.next();
             powerUp.update();
@@ -501,14 +624,22 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 continue;
             }
             if (powerUp.getBounds().intersects(playerRect)) {
-                applyPowerUp(powerUp.type);
+                applyPowerUp(powerUp.type, true);
+                iterator.remove();
+            } else if (twoPlayer && powerUp.getBounds().intersects(player2Rect)) {
+                applyPowerUp(powerUp.type, false);
                 iterator.remove();
             }
         }
     }
 
     private void spawnPowerUps() {
-        if (powerUps.size() >= MAX_POWERUPS || random.nextInt(POWERUP_SPAWN_RATE) != 0 || gameOver || isPaused) {
+        int spawnRate = POWERUP_SPAWN_RATE;
+        if (gameMode == MODE_STAGE) {
+            spawnRate = Math.max(POWERUP_MIN_STAGE_SPAWN_RATE,
+                    POWERUP_SPAWN_RATE - (currentLevel - 1) * POWERUP_STAGE_RATE_REDUCTION);
+        }
+        if (powerUps.size() >= MAX_POWERUPS || random.nextInt(spawnRate) != 0 || gameOver || isPaused) {
             return;
         }
         int x = 20 + random.nextInt(WIDTH - 40 - POWERUP_SIZE);
@@ -529,11 +660,21 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         powerUps.add(new PowerUp(x, y, type, POWERUP_SIZE, POWERUP_FALL_SPEED));
     }
 
-    private void applyPowerUp(int type) {
+    private void applyPowerUp(int type, boolean forPlayer1) {
         if (type == PowerUp.TYPE_HEALTH) {
-            lives = Math.min(lives + 1, START_LIVES + 3);
+            if (forPlayer1) {
+                playerLives = Math.min(playerLives + 1, START_LIVES + 3);
+            } else {
+                player2Lives = Math.min(player2Lives + 1, START_LIVES + 3);
+            }
         } else if (type == PowerUp.TYPE_ATTACK) {
-            attackBoostRemaining = ATTACK_BOOST_DURATION;
+            if (forPlayer1) {
+                playerAttackMultiplier *= 2;
+                playerAttackBoostRemaining = ATTACK_BOOST_DURATION;
+            } else {
+                player2AttackMultiplier *= 2;
+                player2AttackBoostRemaining = ATTACK_BOOST_DURATION;
+            }
         } else if (type == PowerUp.TYPE_SHIELD) {
             shieldRemaining = SHIELD_DURATION;
         }
@@ -570,7 +711,31 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void checkCollisions() {
-        Iterator<Bullet> bulletIterator = bullets.iterator();
+        checkBulletHitsAliens(bullets);
+        checkBulletHitsAliens(player2Bullets);
+
+        Rectangle2D playerRect = new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
+        Rectangle2D player2Rect = new Rectangle2D.Double(player2X, player2Y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        Iterator<Bullet> enemyIterator = enemyBullets.iterator();
+        while (enemyIterator.hasNext()) {
+            Bullet enemyBullet = enemyIterator.next();
+            boolean hitPlayer1 = enemyBullet.getBounds().intersects(playerRect);
+            boolean hitPlayer2 = enemyBullet.getBounds().intersects(player2Rect);
+            if (hitPlayer1 || hitPlayer2) {
+                enemyIterator.remove();
+                if (shieldRemaining > 0) {
+                    shieldRemaining = 0;
+                    SoundPlayer.playHit();
+                } else {
+                    handlePlayerHit(hitPlayer1, hitPlayer2);
+                }
+                return;
+            }
+        }
+    }
+
+    private void checkBulletHitsAliens(List<Bullet> bulletList) {
+        Iterator<Bullet> bulletIterator = bulletList.iterator();
         while (bulletIterator.hasNext()) {
             Bullet bullet = bulletIterator.next();
             Rectangle2D bulletRect = bullet.getBounds();
@@ -602,22 +767,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 continue;
             }
         }
-
-        Rectangle2D playerRect = new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
-        Iterator<Bullet> enemyIterator = enemyBullets.iterator();
-        while (enemyIterator.hasNext()) {
-            Bullet enemyBullet = enemyIterator.next();
-            if (enemyBullet.getBounds().intersects(playerRect)) {
-                enemyIterator.remove();
-                if (shieldRemaining > 0) {
-                    shieldRemaining = 0;
-                    SoundPlayer.playHit();
-                } else {
-                    handlePlayerHit();
-                }
-                return;
-            }
-        }
     }
 
     private void checkGameState() {
@@ -646,13 +795,15 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             Iterator<Alien> alienIterator = aliens.iterator();
             while (alienIterator.hasNext()) {
                 Alien alien = alienIterator.next();
-                if (alien.getBounds().intersects(new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT))) {
+                boolean hitPlayer1 = alien.getBounds().intersects(new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT));
+                boolean hitPlayer2 = alien.getBounds().intersects(new Rectangle2D.Double(player2X, player2Y, PLAYER_WIDTH, PLAYER_HEIGHT));
+                if (hitPlayer1 || hitPlayer2) {
                     alienIterator.remove();
                     if (shieldRemaining > 0) {
                         shieldRemaining = 0;
                         SoundPlayer.playHit();
                     } else {
-                        handlePlayerHit();
+                        handlePlayerHit(hitPlayer1, hitPlayer2);
                     }
                     return;
                 }
@@ -670,30 +821,51 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
-    private void handlePlayerHit() {
-        lives--;
+    private void handlePlayerHit(boolean hitPlayer1, boolean hitPlayer2) {
+        if (hitPlayer1 && playerLives > 0) {
+            playerLives--;
+        }
+        if (hitPlayer2 && player2Lives > 0) {
+            player2Lives--;
+        }
         SoundPlayer.playHit();
-        if (lives <= 0) {
+        if (playerLives <= 0 && (!twoPlayer || player2Lives <= 0)) {
             setGameOver(false);
             return;
         }
 
-        // Reset player position after taking damage.
-        playerX = (WIDTH - PLAYER_WIDTH) / 2;
-        playerY = safeLineY;
+        // Reset only the hit player's position if they still have lives remaining.
+        if (hitPlayer1 && playerLives > 0) {
+            playerX = (WIDTH - PLAYER_WIDTH) / 2;
+            playerY = safeLineY;
+        }
+        if (hitPlayer2 && player2Lives > 0) {
+            player2X = (WIDTH - PLAYER_WIDTH) / 2;
+            player2Y = safeLineY;
+        }
         fireCooldown = 0;
+        fireCooldown2 = 0;
         bullets.clear();
+        player2Bullets.clear();
         moveLeft = false;
         moveRight = false;
         moveUp = false;
         moveDown = false;
+        moveLeft2 = false;
+        moveRight2 = false;
+        moveUp2 = false;
+        moveDown2 = false;
         shootPressed = false;
+        shoot2Pressed = false;
     }
 
     private void setGameOver(boolean win) {
         if (!gameOver) {
             gameOver = true;
             gameWin = win;
+            if (gameFrame != null && gameMode == MODE_STAGE) {
+                gameFrame.getLeaderboard().addScore(score, twoPlayer);
+            }
             if (!gameOverSoundPlayed) {
                 gameOverSoundPlayed = true;
                 SoundPlayer.playGameOver();
@@ -710,16 +882,32 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     private void advanceToNextStage() {
         bossSpawned = false;
-        if (playerShotCount < 2) {
-            playerShotCount = 2;
+        if (gameMode == MODE_STAGE) {
+            playerShotCount *= 2;
+            player2ShotCount *= 2;
         }
         if (currentLevel < MAX_STAGE_LEVELS) {
             currentLevel++;
             bullets.clear();
+            player2Bullets.clear();
             enemyBullets.clear();
             alienShootTimer = 0;
             playerX = (WIDTH - PLAYER_WIDTH) / 2;
             playerY = safeLineY;
+            player2X = (WIDTH - PLAYER_WIDTH) / 2;
+            player2Y = safeLineY;
+            fireCooldown = 0;
+            fireCooldown2 = 0;
+            moveLeft = false;
+            moveRight = false;
+            moveUp = false;
+            moveDown = false;
+            moveLeft2 = false;
+            moveRight2 = false;
+            moveUp2 = false;
+            moveDown2 = false;
+            shootPressed = false;
+            shoot2Pressed = false;
             initAliens();
             return;
         }
@@ -840,6 +1028,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
         
         drawPlayer(g2);
+        if (twoPlayer) {
+            drawPlayer2(g2);
+        }
         drawBullets(g2);
         drawAliens(g2);
         drawPowerUps(g2);
@@ -857,10 +1048,24 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private void drawHud(Graphics2D g2) {
         g2.setColor(new Color(0, 255, 120));
         g2.setFont(new Font("Consolas", Font.BOLD, 20));
-        g2.drawString("Score: " + score, 20, 30);
-        g2.drawString("Lives: " + lives, 20, 55);
-        
-        // Draw game mode
+
+        int x = 20;
+        int y = 30;
+        int lineGap = 30;
+
+        g2.drawString("Score: " + score, x, y);
+        y += lineGap;
+
+        if (twoPlayer) {
+            g2.drawString("P1 Lives: " + playerLives, x, y);
+            y += lineGap;
+            g2.drawString("P2 Lives: " + player2Lives, x, y);
+            y += lineGap;
+        } else {
+            g2.drawString("Lives: " + playerLives, x, y);
+            y += lineGap;
+        }
+
         String modeText;
         Color modeColor;
         if (gameMode == MODE_CLASSIC) {
@@ -874,6 +1079,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             modeColor = new Color(180, 255, 100);
         }
         g2.setColor(modeColor);
+<<<<<<< HEAD
         g2.drawString("Mode: " + modeText, 20, 85);
         
         // Draw difficulty level (only for non-classic modes)
@@ -897,42 +1103,73 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     g2.setColor(new Color(255, 200, 0));
             }
             g2.drawString("Difficulty: " + difficultyText, WIDTH - 250, 30);
-        }
-        if (gameMode == MODE_STAGE) {
-            g2.drawString("Stage: " + currentLevel, WIDTH - 250, 55);
-        }
-        g2.drawString("Aliens: " + aliens.size(), WIDTH - 250, 80);
+=======
+        g2.drawString("Mode: " + modeText, x, y);
+        y += lineGap;
 
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
         g2.setColor(new Color(170, 255, 210));
-        if (attackBoostRemaining > 0) {
-            g2.drawString("Attack Powerup: " + (attackBoostRemaining / 60) + "s", 20, 135);
+        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
+        if (playerAttackBoostRemaining > 0) {
+            g2.drawString("P1 Attack: " + (playerAttackBoostRemaining / 60) + "s", x, y);
+            y += lineGap;
+        }
+        if (twoPlayer && player2AttackBoostRemaining > 0) {
+            g2.drawString("P2 Attack: " + (player2AttackBoostRemaining / 60) + "s", x, y);
+            y += lineGap;
         }
         if (shieldRemaining > 0) {
-            g2.drawString("Shield: " + (shieldRemaining / 60) + "s", 20, 155);
+            g2.drawString("Shield: " + (shieldRemaining / 60) + "s", x, y);
+            y += lineGap;
         }
-        
-        // Display ultimate ability status
-        if (ultimateActive) {
-            g2.setColor(new Color(255, 100, 255));
-            g2.drawString("ULTIMATE ACTIVE: " + (ultimateDuration / 60) + "s", 20, 150);
-        } else if (ultimateCooldown > 0) {
-            g2.setColor(new Color(200, 100, 255));
-            g2.drawString("Ultimate Cooldown: " + (ultimateCooldown / 60) + "s (Press U)", 20, 150);
+
+        if (!twoPlayer) {
+            g2.setColor(new Color(ultimateActive ? 255 : 100, 100, 255));
+            if (ultimateActive) {
+                g2.drawString("ULTIMATE ACTIVE: " + (ultimateDuration / 60) + "s", x, y);
+            } else if (ultimateCooldown > 0) {
+                g2.drawString("Ultimate Cooldown: " + (ultimateCooldown / 60) + "s (Press U)", x, y);
+            } else {
+                g2.drawString("Ultimate Ready (Press U)", x, y);
+            }
+            y += lineGap;
         } else {
-            g2.setColor(new Color(100, 255, 100));
-            g2.drawString("Ultimate Ready (Press U)", 20, 150);
+            g2.setColor(new Color(200, 200, 200));
+            g2.drawString("Two Player Mode: No Ultimate", x, y);
+            y += lineGap;
         }
-        
-        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
-            g2.setColor(new Color(170, 255, 210));
-            g2.drawString("Move: Arrows  Shoot: Space", 20, 165);
-        } else {
-            g2.setColor(new Color(170, 255, 210));
-            g2.drawString("Move: Left/Right  Shoot: Space", 20, 165);
+
+        g2.setColor(new Color(170, 255, 210));
+        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
+        g2.drawString((gameMode == MODE_DODGING || gameMode == MODE_STAGE)
+                ? "P1: Arrows  Shoot: Space" + (twoPlayer ? " | P2: WASD  Shoot: H" : "")
+                : "P1: Left/Right  Shoot: Space" + (twoPlayer ? " | P2: A/D  Shoot: H" : ""), x, y);
+        y += lineGap;
+        g2.drawString("Pause: P  Menu: Esc  Restart: R", x, y);
+
+        String difficultyText;
+        switch(difficulty) {
+            case 0:
+                difficultyText = "EASY";
+                g2.setColor(new Color(100, 255, 100));
+                break;
+            case 1:
+                difficultyText = "NORMAL";
+                g2.setColor(new Color(255, 200, 0));
+                break;
+            case 2:
+                difficultyText = "HARD";
+                g2.setColor(new Color(255, 100, 100));
+                break;
+            default:
+                difficultyText = "NORMAL";
+                g2.setColor(new Color(255, 200, 0));
+>>>>>>> branch4
+        }
+        if (gameMode == MODE_STAGE) {
+            g2.drawString("Stage: " + currentLevel, WIDTH - 250, 60);
         }
         g2.setColor(new Color(170, 255, 210));
-        g2.drawString("Ultimate: U  Pause: P  Menu: Esc  Restart: R", 20, 185);
+        g2.drawString("Aliens: " + aliens.size(), WIDTH - 250, 90);
     }
 
     private void drawSafetyLine(Graphics2D g2) {
@@ -1015,59 +1252,105 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void drawPlayer(Graphics2D g2) {
+        boolean dead = playerLives <= 0;
+        Color hullColor = dead ? new Color(140, 140, 140) : new Color(50, 150, 255);
+        Color outlineColor = dead ? new Color(180, 180, 180) : new Color(100, 180, 255);
+        Color cockpitFill = dead ? new Color(190, 190, 190) : new Color(150, 255, 150);
+        Color cockpitOutline = dead ? new Color(170, 170, 170) : new Color(100, 200, 100);
+        Color thrusterColor = dead ? new Color(170, 170, 170) : new Color(255, 100, 50);
+        Color thrusterAccent = dead ? new Color(200, 200, 200) : new Color(255, 200, 100);
+
         int centerX = playerX + PLAYER_WIDTH / 2;
         int centerY = playerY + PLAYER_HEIGHT / 2;
 
-        // 主船體 - 三角形（指向上方）
         int[] hullX = {
-            playerX + PLAYER_WIDTH / 2,           // 前端（尖點）
-            playerX + 5,                          // 左後端
-            playerX + PLAYER_WIDTH - 5             // 右後端
+            playerX + PLAYER_WIDTH / 2,
+            playerX + 5,
+            playerX + PLAYER_WIDTH - 5
         };
         int[] hullY = {
-            playerY,                              // 前端
-            playerY + PLAYER_HEIGHT,              // 左後端
-            playerY + PLAYER_HEIGHT               // 右後端
+            playerY,
+            playerY + PLAYER_HEIGHT,
+            playerY + PLAYER_HEIGHT
         };
-        
+
         Polygon hull = new Polygon(hullX, hullY, 3);
-        g2.setColor(new Color(50, 150, 255));
+        g2.setColor(hullColor);
         g2.fillPolygon(hull);
-        
-        // 船體邊框
-        g2.setColor(new Color(100, 180, 255));
+
+        g2.setColor(outlineColor);
         g2.setStroke(new java.awt.BasicStroke(2));
         g2.drawPolygon(hull);
-        
-        // 駕駛艙（圓形窗口）
+
         int cockpitX = playerX + PLAYER_WIDTH / 2 - 6;
         int cockpitY = playerY + 4;
-        g2.setColor(new Color(150, 255, 150));
+        g2.setColor(cockpitFill);
         g2.fillOval(cockpitX, cockpitY, 12, 8);
-        g2.setColor(new Color(100, 200, 100));
+        g2.setColor(cockpitOutline);
         g2.drawOval(cockpitX, cockpitY, 12, 8);
-        
-        // 左翼推進器
-        g2.setColor(new Color(255, 100, 50));
+
+        g2.setColor(thrusterColor);
         g2.fillRect(playerX + 8, playerY + PLAYER_HEIGHT - 4, 6, 4);
-        
-        // 右翼推進器
         g2.fillRect(playerX + PLAYER_WIDTH - 14, playerY + PLAYER_HEIGHT - 4, 6, 4);
-        
-        // 中央推進器
-        g2.setColor(new Color(255, 200, 100));
+        g2.setColor(thrusterAccent);
         g2.fillRect(playerX + PLAYER_WIDTH / 2 - 2, playerY + PLAYER_HEIGHT - 2, 4, 2);
 
-        if (shieldRemaining > 0) {
+        if (shieldRemaining > 0 && !dead) {
             g2.setColor(new Color(80, 200, 255, 120));
             g2.setStroke(new java.awt.BasicStroke(4));
             g2.drawOval(playerX - 8, playerY - 8, PLAYER_WIDTH + 16, PLAYER_HEIGHT + 16);
         }
     }
 
+    private void drawPlayer2(Graphics2D g2) {
+        boolean dead = player2Lives <= 0;
+        Color hullColor = dead ? new Color(140, 140, 140) : new Color(255, 150, 50);
+        Color outlineColor = dead ? new Color(180, 180, 180) : new Color(255, 200, 100);
+        Color cockpitFill = dead ? new Color(200, 200, 200) : new Color(255, 220, 150);
+        Color cockpitOutline = dead ? new Color(170, 170, 170) : new Color(200, 160, 100);
+        Color thrusterColor = dead ? new Color(190, 190, 190) : new Color(255, 180, 100);
+
+        int centerX = player2X + PLAYER_WIDTH / 2;
+        int centerY = player2Y + PLAYER_HEIGHT / 2;
+
+        int[] hullX = {
+            player2X + PLAYER_WIDTH / 2,
+            player2X + 5,
+            player2X + PLAYER_WIDTH - 5
+        };
+        int[] hullY = {
+            player2Y,
+            player2Y + PLAYER_HEIGHT,
+            player2Y + PLAYER_HEIGHT
+        };
+
+        Polygon hull = new Polygon(hullX, hullY, 3);
+        g2.setColor(hullColor);
+        g2.fillPolygon(hull);
+        g2.setColor(outlineColor);
+        g2.setStroke(new java.awt.BasicStroke(2));
+        g2.drawPolygon(hull);
+
+        int cockpitX = player2X + PLAYER_WIDTH / 2 - 6;
+        int cockpitY = player2Y + 4;
+        g2.setColor(cockpitFill);
+        g2.fillOval(cockpitX, cockpitY, 12, 8);
+        g2.setColor(cockpitOutline);
+        g2.drawOval(cockpitX, cockpitY, 12, 8);
+
+        g2.setColor(thrusterColor);
+        g2.fillRect(player2X + 8, player2Y + PLAYER_HEIGHT - 4, 6, 4);
+        g2.fillRect(player2X + PLAYER_WIDTH - 14, player2Y + PLAYER_HEIGHT - 4, 6, 4);
+        g2.fillRect(player2X + PLAYER_WIDTH / 2 - 2, player2Y + PLAYER_HEIGHT - 2, 4, 2);
+    }
+
     private void drawBullets(Graphics2D g2) {
         g2.setColor(Color.WHITE);
         for (Bullet bullet : bullets) {
+            g2.fillRect(bullet.x, bullet.y, BULLET_WIDTH, BULLET_HEIGHT);
+        }
+        g2.setColor(new Color(100, 255, 255));
+        for (Bullet bullet : player2Bullets) {
             g2.fillRect(bullet.x, bullet.y, BULLET_WIDTH, BULLET_HEIGHT);
         }
         g2.setColor(new Color(255, 120, 80));
@@ -1179,10 +1462,20 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             moveUp = true;
         } else if (code == KeyEvent.VK_DOWN) {
             moveDown = true;
+        } else if (code == KeyEvent.VK_A) {
+            moveLeft2 = true;
+        } else if (code == KeyEvent.VK_D) {
+            moveRight2 = true;
+        } else if (code == KeyEvent.VK_W) {
+            moveUp2 = true;
+        } else if (code == KeyEvent.VK_S) {
+            moveDown2 = true;
         } else if (code == KeyEvent.VK_SPACE) {
             shootPressed = true;
-        } else if (code == KeyEvent.VK_U && !gameOver && !isPaused && ultimateCooldown == 0) {
-            // Activate ultimate ability
+        } else if (code == KeyEvent.VK_H) {
+            shoot2Pressed = true;
+        } else if (code == KeyEvent.VK_U && !gameOver && !isPaused && !twoPlayer && ultimateCooldown == 0) {
+            // Activate ultimate ability (single-player only)
             ultimateActive = true;
             ultimateDuration = ULTIMATE_DURATION;
             ultimateFireCounter = 0;
@@ -1216,8 +1509,18 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             moveUp = false;
         } else if (code == KeyEvent.VK_DOWN) {
             moveDown = false;
+        } else if (code == KeyEvent.VK_A) {
+            moveLeft2 = false;
+        } else if (code == KeyEvent.VK_D) {
+            moveRight2 = false;
+        } else if (code == KeyEvent.VK_W) {
+            moveUp2 = false;
+        } else if (code == KeyEvent.VK_S) {
+            moveDown2 = false;
         } else if (code == KeyEvent.VK_SPACE) {
             shootPressed = false;
+        } else if (code == KeyEvent.VK_H) {
+            shoot2Pressed = false;
         }
     }
 }
