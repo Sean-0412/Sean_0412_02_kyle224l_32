@@ -10,9 +10,6 @@ public class GameFrame extends JFrame {
     private GamePanel gamePanel;
     private Leaderboard leaderboard;
     private int lastGameMode;
-    private int lastDifficulty;
-    private boolean lastTwoPlayer;
-    
     public GameFrame() {
         setTitle("Space Invaders");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -33,11 +30,12 @@ public class GameFrame extends JFrame {
     
     public void startGameWithSettings(int gameMode, int difficulty, boolean twoPlayer) {
         lastGameMode = gameMode;
-        lastDifficulty = difficulty;
-        lastTwoPlayer = twoPlayer;
-        
-        // Remove menu panel
-        remove(menuPanel);
+        if (gamePanel != null) {
+            remove(gamePanel);
+        }
+        if (menuPanel != null) {
+            remove(menuPanel);
+        }
         
         // Create and add game panel with game mode, difficulty level, and player count
         gamePanel = new GamePanel(this, gameMode, difficulty, twoPlayer);
@@ -49,9 +47,13 @@ public class GameFrame extends JFrame {
         
         // Start the game
         gamePanel.startGame();
+        gamePanel.requestFocusInWindow();
     }
     
     public void returnToDifficultyMenu() {
+        // Stop game music when returning to menu
+        SoundPlayer.stopBackgroundMusic();
+        
         // Remove game panel
         remove(gamePanel);
         
@@ -68,6 +70,9 @@ public class GameFrame extends JFrame {
     }
 
     public void returnToMainMenu() {
+        // Stop game music when returning to menu
+        SoundPlayer.stopBackgroundMusic();
+        
         // Remove game panel
         remove(gamePanel);
         
