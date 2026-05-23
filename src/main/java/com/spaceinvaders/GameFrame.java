@@ -30,8 +30,12 @@ public class GameFrame extends JFrame {
     
     public void startGameWithSettings(int gameMode, int difficulty, boolean twoPlayer) {
         lastGameMode = gameMode;
-        // Remove menu panel
-        remove(menuPanel);
+        if (gamePanel != null) {
+            remove(gamePanel);
+        }
+        if (menuPanel != null) {
+            remove(menuPanel);
+        }
         
         // Create and add game panel with game mode, difficulty level, and player count
         gamePanel = new GamePanel(this, gameMode, difficulty, twoPlayer);
@@ -43,9 +47,13 @@ public class GameFrame extends JFrame {
         
         // Start the game
         gamePanel.startGame();
+        gamePanel.requestFocusInWindow();
     }
     
     public void returnToDifficultyMenu() {
+        // Stop game music when returning to menu
+        SoundPlayer.stopBackgroundMusic();
+        
         // Remove game panel
         remove(gamePanel);
         
@@ -62,6 +70,9 @@ public class GameFrame extends JFrame {
     }
 
     public void returnToMainMenu() {
+        // Stop game music when returning to menu
+        SoundPlayer.stopBackgroundMusic();
+        
         // Remove game panel
         remove(gamePanel);
         

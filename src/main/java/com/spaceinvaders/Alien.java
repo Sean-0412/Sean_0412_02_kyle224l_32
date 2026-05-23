@@ -17,6 +17,13 @@ public class Alien {
     public static final int WIDTH = 36;
     public static final int HEIGHT = 24;
 
+    private boolean bossUseCos;
+    private double bossPhase;
+    private double bossFrequency;
+    private double bossAmplitude;
+    private double bossBaseY;
+    private int bossDir = 1;
+
     public Alien(int x, int y) {
         this(x, y, 1, false);
     }
@@ -27,6 +34,15 @@ public class Alien {
         this.health = health;
         this.boss = boss;
         this.dx = 1;
+    }
+
+    public void initBossMovement(Random random, double maxAmplitude) {
+        bossBaseY = y;
+        bossUseCos = random.nextBoolean();
+        bossAmplitude = random.nextDouble() * Math.max(0, maxAmplitude);
+        bossFrequency = 0.04 + random.nextDouble() * 0.06;
+        bossPhase = 0.0;
+        bossDir = 1;
     }
 
     public void move(double dx, double dy) {
@@ -48,6 +64,27 @@ public class Alien {
         } else if (x > maxX) {
             x = maxX;
             dx = -1;
+        }
+    }
+
+    public void updateBossMovement(double speed, Random random, int minX, int maxX, double maxAmplitude) {
+        if (bossAmplitude == 0 && bossFrequency == 0) {
+            initBossMovement(random, maxAmplitude);
+        }
+
+        x += bossDir * speed;
+        bossPhase += bossFrequency;
+        double offset = bossUseCos ? Math.cos(bossPhase) : Math.sin(bossPhase);
+        y = bossBaseY + bossAmplitude * offset;
+
+        if (x < minX) {
+            x = minX;
+            bossDir = 1;
+            initBossMovement(random, maxAmplitude);
+        } else if (x > maxX) {
+            x = maxX;
+            bossDir = -1;
+            initBossMovement(random, maxAmplitude);
         }
     }
 
