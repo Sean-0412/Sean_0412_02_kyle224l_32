@@ -108,6 +108,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private boolean gameOver;
     private boolean gameWin;
     private boolean gameOverSoundPlayed;
+    private boolean battleMusicPlayed;
+    private boolean bossMusicPlayed;
+    private boolean defeatSoundPlayed;
     
     private boolean isPaused;
     private int resumeCountdown; // 3, 2, 1, then resume
@@ -195,6 +198,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         if (!gameTimer.isRunning()) {
             gameTimer.start();
         }
+        // Play battle music on game start
+        if (!battleMusicPlayed) {
+            battleMusicPlayed = true;
+            SoundPlayer.playBattle();
+        }
         requestFocusInWindow();
     }
 
@@ -263,6 +271,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         gameOver = false;
         gameWin = false;
         gameOverSoundPlayed = false;
+        battleMusicPlayed = false;
+        bossMusicPlayed = false;
+        defeatSoundPlayed = false;
         fireCooldown = 0;
         alienShootTimer = 0;
         playerShotCount = 1;
@@ -687,6 +698,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 gameOverSoundPlayed = true;
                 SoundPlayer.playGameOver();
             }
+            // Play defeat sound if player loses
+            if (!win && !defeatSoundPlayed) {
+                defeatSoundPlayed = true;
+                SoundPlayer.playDefeat();
+            }
         } else {
             gameWin = win;
         }
@@ -774,6 +790,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         aliens.add(new Alien(x, y, BOSS_HEALTH, true));
         alienDirection = 1;
         alienSpeed = alienBaseSpeed;
+        // Play boss music on boss spawn
+        if (!bossMusicPlayed) {
+            bossMusicPlayed = true;
+            SoundPlayer.playBoss();
+        }
     }
 
     private void spawnStageAliens(int count) {
@@ -798,6 +819,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         aliens.add(new Alien(x, y, BOSS_HEALTH, true));
         alienDirection = 1;
         alienSpeed = alienBaseSpeed + (currentLevel - 1) * 0.15 + (score / 100.0) * 0.18;
+        // Play boss music on boss spawn
+        if (!bossMusicPlayed) {
+            bossMusicPlayed = true;
+            SoundPlayer.playBoss();
+        }
     }
 
     @Override
@@ -850,26 +876,28 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         g2.setColor(modeColor);
         g2.drawString("Mode: " + modeText, 20, 85);
         
-        // Draw difficulty level
-        String difficultyText;
-        switch(difficulty) {
-            case 0:
-                difficultyText = "EASY";
-                g2.setColor(new Color(100, 255, 100));
-                break;
-            case 1:
-                difficultyText = "NORMAL";
-                g2.setColor(new Color(255, 200, 0));
-                break;
-            case 2:
-                difficultyText = "HARD";
-                g2.setColor(new Color(255, 100, 100));
-                break;
-            default:
-                difficultyText = "NORMAL";
-                g2.setColor(new Color(255, 200, 0));
+        // Draw difficulty level (only for non-classic modes)
+        if (gameMode != MODE_CLASSIC) {
+            String difficultyText;
+            switch(difficulty) {
+                case 0:
+                    difficultyText = "EASY";
+                    g2.setColor(new Color(100, 255, 100));
+                    break;
+                case 1:
+                    difficultyText = "NORMAL";
+                    g2.setColor(new Color(255, 200, 0));
+                    break;
+                case 2:
+                    difficultyText = "HARD";
+                    g2.setColor(new Color(255, 100, 100));
+                    break;
+                default:
+                    difficultyText = "NORMAL";
+                    g2.setColor(new Color(255, 200, 0));
+            }
+            g2.drawString("Difficulty: " + difficultyText, WIDTH - 250, 30);
         }
-        g2.drawString("Difficulty: " + difficultyText, WIDTH - 250, 30);
         if (gameMode == MODE_STAGE) {
             g2.drawString("Stage: " + currentLevel, WIDTH - 250, 55);
         }

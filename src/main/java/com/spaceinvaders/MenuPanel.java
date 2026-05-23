@@ -382,9 +382,14 @@ public class MenuPanel extends JPanel implements KeyListener {
             repaint();
         } else if (code == KeyEvent.VK_ENTER) {
             selectedGameMode = selectedOption;
-            currentState = STATE_DIFFICULTY;
-            selectedOption = 1; // Default to Normal
-            repaint();
+            // Classic mode: skip difficulty selection, start with Normal difficulty
+            if (selectedGameMode == 0) {
+                gameFrame.startGameWithSettings(selectedGameMode, 1);
+            } else {
+                currentState = STATE_DIFFICULTY;
+                selectedOption = 1; // Default to Normal
+                repaint();
+            }
         } else if (code == KeyEvent.VK_ESCAPE) {
             currentState = STATE_MAIN_MENU;
             selectedOption = 0;
