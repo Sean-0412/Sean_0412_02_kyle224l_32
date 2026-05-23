@@ -10,9 +10,6 @@ public class GameFrame extends JFrame {
     private GamePanel gamePanel;
     private Leaderboard leaderboard;
     private int lastGameMode;
-    private int lastDifficulty;
-    private boolean lastTwoPlayer;
-    
     public GameFrame() {
         setTitle("Space Invaders");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -33,9 +30,6 @@ public class GameFrame extends JFrame {
     
     public void startGameWithSettings(int gameMode, int difficulty, boolean twoPlayer) {
         lastGameMode = gameMode;
-        lastDifficulty = difficulty;
-        lastTwoPlayer = twoPlayer;
-        
         // Remove menu panel
         remove(menuPanel);
         

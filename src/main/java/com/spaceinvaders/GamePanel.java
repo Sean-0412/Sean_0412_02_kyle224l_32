@@ -44,7 +44,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     private static final int BULLET_WIDTH = 4;
     private static final int BULLET_HEIGHT = 12;
-    private static final int BULLET_SPEED = 10;
     private static final int MAX_BULLETS = 12;
     private static final int ENEMY_BULLET_SPEED = 6;
     private static final int MAX_ENEMY_BULLETS = 10;
@@ -138,7 +137,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     private double alienBaseSpeed;
     private double alienSpeed;
-    private int alienDirection;
     private int safeLineY; // For classic and stage modes: the line that enemies shouldn't cross
     
     private int difficulty; // 0 = Easy, 1 = Normal, 2 = Hard
@@ -155,7 +153,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private int remainingDodgingAliens;
     private int dodgingNextSpawnCountdown;
     private boolean dodgingBossSpawned;
-    private int dodgingSpawnBatch = 1;
     private int dodgingWaveCount;
     private static final int DODGING_SPAWN_INTERVAL = 60;
     private static final int DODGING_BOSS_SPAWN_TIME = 6000; // 100 seconds at 60fps
@@ -278,7 +275,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 alienBaseSpeed = 1.8;
         }
         alienSpeed = alienBaseSpeed;
-        alienDirection = 1;
     }
 
     private void restartGame() {
@@ -976,7 +972,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         int x = (WIDTH - ALIEN_WIDTH) / 2;
         int y = START_Y;
         aliens.add(new Alien(x, y, BOSS_HEALTH, true));
-        alienDirection = 1;
         alienSpeed = alienBaseSpeed;
         // Play boss music on boss spawn
         if (!bossMusicPlayed) {
@@ -993,7 +988,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             aliens.add(new Alien(x, y));
         }
         if (wasEmpty) {
-            alienDirection = 1;
         }
         if (gameMode == MODE_STAGE) {
             alienSpeed = alienBaseSpeed + (currentLevel - 1) * 0.15 + (score / 100.0) * 0.18;
@@ -1005,7 +999,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         int x = (WIDTH - ALIEN_WIDTH) / 2;
         int y = START_Y;
         aliens.add(new Alien(x, y, BOSS_HEALTH, true));
-        alienDirection = 1;
         alienSpeed = alienBaseSpeed + (currentLevel - 1) * 0.15 + (score / 100.0) * 0.18;
         // Play boss music on boss spawn
         if (!bossMusicPlayed) {
@@ -1079,7 +1072,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             modeColor = new Color(180, 255, 100);
         }
         g2.setColor(modeColor);
-<<<<<<< HEAD
         g2.drawString("Mode: " + modeText, 20, 85);
         
         // Draw difficulty level (only for non-classic modes)
@@ -1103,7 +1095,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                     g2.setColor(new Color(255, 200, 0));
             }
             g2.drawString("Difficulty: " + difficultyText, WIDTH - 250, 30);
-=======
+        }
         g2.drawString("Mode: " + modeText, x, y);
         y += lineGap;
 
@@ -1146,24 +1138,18 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         y += lineGap;
         g2.drawString("Pause: P  Menu: Esc  Restart: R", x, y);
 
-        String difficultyText;
         switch(difficulty) {
             case 0:
-                difficultyText = "EASY";
                 g2.setColor(new Color(100, 255, 100));
                 break;
             case 1:
-                difficultyText = "NORMAL";
                 g2.setColor(new Color(255, 200, 0));
                 break;
             case 2:
-                difficultyText = "HARD";
                 g2.setColor(new Color(255, 100, 100));
                 break;
             default:
-                difficultyText = "NORMAL";
                 g2.setColor(new Color(255, 200, 0));
->>>>>>> branch4
         }
         if (gameMode == MODE_STAGE) {
             g2.drawString("Stage: " + currentLevel, WIDTH - 250, 60);
@@ -1260,9 +1246,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         Color thrusterColor = dead ? new Color(170, 170, 170) : new Color(255, 100, 50);
         Color thrusterAccent = dead ? new Color(200, 200, 200) : new Color(255, 200, 100);
 
-        int centerX = playerX + PLAYER_WIDTH / 2;
-        int centerY = playerY + PLAYER_HEIGHT / 2;
-
         int[] hullX = {
             playerX + PLAYER_WIDTH / 2,
             playerX + 5,
@@ -1309,9 +1292,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         Color cockpitFill = dead ? new Color(200, 200, 200) : new Color(255, 220, 150);
         Color cockpitOutline = dead ? new Color(170, 170, 170) : new Color(200, 160, 100);
         Color thrusterColor = dead ? new Color(190, 190, 190) : new Color(255, 180, 100);
-
-        int centerX = player2X + PLAYER_WIDTH / 2;
-        int centerY = player2Y + PLAYER_HEIGHT / 2;
 
         int[] hullX = {
             player2X + PLAYER_WIDTH / 2,
