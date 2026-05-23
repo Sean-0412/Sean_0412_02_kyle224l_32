@@ -487,7 +487,7 @@ public class MenuPanel extends JPanel implements KeyListener {
             repaint();
         } else if (code == KeyEvent.VK_ENTER) {
             selectedGameMode = selectedOption;
-<<<<<<< HEAD
+
             currentState = STATE_PLAYER_COUNT;
             selectedOption = selectedPlayerCount;
             repaint();
