@@ -123,7 +123,7 @@ public class Player {
     private void updateBullets() {
         bullets.removeIf(bullet -> {
             bullet.update();
-            return bullet.y + Bullet.HEIGHT < 0;
+            return bullet.y + Bullet.HEIGHT < 0 || bullet.y > GamePanel.HEIGHT || bullet.x + Bullet.WIDTH < 0 || bullet.x > GamePanel.WIDTH;
         });
     }
 

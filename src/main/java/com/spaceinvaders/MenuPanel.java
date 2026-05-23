@@ -48,6 +48,8 @@ public class MenuPanel extends JPanel implements KeyListener {
         setFocusable(true);
         addKeyListener(this);
         requestFocusInWindow();
+        // Play menu background music
+        SoundPlayer.playMenu();
     }
     
     public void setInitialStateToDifficultyMenu(int gameMode) {
