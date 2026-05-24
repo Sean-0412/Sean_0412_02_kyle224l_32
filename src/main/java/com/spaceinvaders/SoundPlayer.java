@@ -28,6 +28,10 @@ public class SoundPlayer {
         playTone(220, 70, 0.60);
     }
 
+    public static void playExplosion() {
+        playTone(140, 160, 0.70);
+    }
+
     public static void playGameOver() {
         playTone(120, 320, 0.55);
     }

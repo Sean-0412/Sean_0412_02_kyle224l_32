@@ -25,6 +25,7 @@ public class Player {
     private int attackMultiplier;
     private int shotCount;
     private int shieldRemaining;
+    private int invincibleRemaining;
     
     private boolean ultimateActive;
     private int ultimateDuration;
@@ -87,6 +88,7 @@ public class Player {
         if (attackBoostRemaining > 0) attackBoostRemaining--;
         else attackMultiplier = 1;
         if (shieldRemaining > 0) shieldRemaining--;
+        if (invincibleRemaining > 0) invincibleRemaining--;
         if (ultimateCooldown > 0) ultimateCooldown--;
         updateBullets();
     }
@@ -129,6 +131,10 @@ public class Player {
 
     public void draw(Graphics2D g2) {
         boolean dead = lives <= 0;
+        boolean flicker = invincibleRemaining > 0 && (invincibleRemaining / 6) % 2 == 0;
+        if (flicker) {
+            return;
+        }
         Color hullColor, outlineColor, cockpitFill, cockpitOutline, thrusterColor, thrusterAccent;
 
         if (isPlayer1) {
@@ -180,14 +186,15 @@ public class Player {
     public void handleHit() {
         if (shieldRemaining > 0) {
             shieldRemaining = 0;
-            SoundPlayer.playHit();
+            SoundPlayer.playExplosion();
             return;
         }
         if (lives > 0) {
             lives--;
-            SoundPlayer.playHit();
+            SoundPlayer.playExplosion();
             if (lives > 0) {
                 resetPosition();
+                invincibleRemaining = 120;
             }
         }
     }
@@ -217,6 +224,7 @@ public class Player {
         attackBoostRemaining = 0;
         attackMultiplier = 1;
         shieldRemaining = 0;
+        invincibleRemaining = 0;
         ultimateActive = false;
         ultimateDuration = 0;
         ultimateCooldown = 0;
@@ -268,6 +276,7 @@ public class Player {
     public boolean isAlive() { return lives > 0; }
     public int getAttackBoostRemaining() { return attackBoostRemaining; }
     public int getShieldRemaining() { return shieldRemaining; }
+    public boolean isInvincible() { return invincibleRemaining > 0; }
     public boolean isUltimateActive() { return ultimateActive; }
     public int getUltimateDuration() { return ultimateDuration; }
     public int getUltimateCooldown() { return ultimateCooldown; }

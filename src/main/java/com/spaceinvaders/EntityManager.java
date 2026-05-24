@@ -10,6 +10,13 @@ import java.util.Random;
 
 public class EntityManager {
     private static final int SPAWN_DELAY_FRAMES = 180;
+    private static final int SHIELDED_SPAWN_INTERVAL_FRAMES = 300;
+
+    private static final int DODGING_WAVE_NONE = -1;
+    private static final int DODGING_WAVE_GREEN = 0;
+    private static final int DODGING_WAVE_BLUE = 1;
+    private static final int DODGING_WAVE_BOSS = 2;
+    private static final double DODGING_BLUE_RUSH_SPEED = 5.5;
 
     private final List<Alien> aliens = new ArrayList<>();
     private final List<Bullet> enemyBullets = new ArrayList<>();
@@ -18,6 +25,7 @@ public class EntityManager {
     private final GamePanel gamePanel;
 
     private int spawnDelayTimer;
+    private int shieldedSpawnTimer;
     private int pendingClassicRows;
     private int pendingStageSpawnCount;
     private int pendingStageLevel;
@@ -33,12 +41,19 @@ public class EntityManager {
     private boolean bossSpawned;
     private boolean dodgingBossSpawned;
 
+    private int dodgingWaveStep;
+    private int dodgingCycle;
+    private int pendingDodgingWaveType = DODGING_WAVE_NONE;
+    private int pendingDodgingWaveCycle;
+    private boolean dodgingWaveInProgress;
+
     public EntityManager(GamePanel gamePanel) {
         this.gamePanel = gamePanel;
     }
 
     public void update(Player player1, Player player2, boolean twoPlayer) {
         updateSpawnDelay();
+        updateShieldedSpawning();
         updateAliens();
         updateEnemyBullets();
         updatePowerUps(player1, player2, twoPlayer);
@@ -57,6 +72,7 @@ public class EntityManager {
         enemyBullets.clear();
         powerUps.clear();
         spawnDelayTimer = 0;
+        shieldedSpawnTimer = 0;
         pendingClassicRows = 0;
         pendingStageSpawnCount = 0;
         pendingStageLevel = 0;
@@ -70,6 +86,11 @@ public class EntityManager {
         bossCharging = false;
         bossSpawned = false;
         dodgingBossSpawned = false;
+        dodgingWaveStep = DODGING_WAVE_GREEN;
+        dodgingCycle = 1;
+        pendingDodgingWaveType = DODGING_WAVE_NONE;
+        pendingDodgingWaveCycle = 1;
+        dodgingWaveInProgress = false;
     }
 
     public void initAliens(int gameMode, int currentLevel, int difficulty) {
@@ -83,14 +104,15 @@ public class EntityManager {
             spawnDelayTimer = SPAWN_DELAY_FRAMES;
             gamePanel.setStageNextSpawnCountdown(SPAWN_DELAY_FRAMES);
         } else if (gameMode == GamePanel.MODE_DODGING) {
-            gamePanel.setRemainingDodgingAliens(50);
+            gamePanel.setRemainingDodgingAliens(0);
             gamePanel.setDodgingWaveCount(0);
-            pendingDodgingSpawnCount = 1;
-            spawnDelayTimer = SPAWN_DELAY_FRAMES;
-            gamePanel.setDodgingNextSpawnCountdown(SPAWN_DELAY_FRAMES);
+            dodgingWaveStep = DODGING_WAVE_GREEN;
+            dodgingCycle = 1;
+            queueNextDodgingWave();
         } else {
-            pendingClassicRows = rows;
-            spawnDelayTimer = SPAWN_DELAY_FRAMES;
+            // Classic 模式不能延遲生成，否則 GamePanel 會看到 aliens 為空，
+            // 馬上判定遊戲結束。Classic 進場時直接生成第一波敵人。
+            spawnClassicWave(rows);
         }
 
         gamePanel.setAlienSpeed(difficulty, gameMode, currentLevel);
@@ -119,9 +141,10 @@ public class EntityManager {
             gamePanel.setStageNextSpawnCountdown(120);
         }
 
-        if (pendingDodgingSpawnCount > 0) {
-            spawnDodgingBossNow();
-            pendingDodgingSpawnCount = 0;
+        if (pendingDodgingWaveType != DODGING_WAVE_NONE) {
+            spawnDodgingWaveNow(pendingDodgingWaveType, pendingDodgingWaveCycle);
+            pendingDodgingWaveType = DODGING_WAVE_NONE;
+            pendingDodgingWaveCycle = 1;
             gamePanel.setDodgingNextSpawnCountdown(60);
         }
 
@@ -167,12 +190,22 @@ public class EntityManager {
                 } else if (alien.y < minBossY) {
                     alien.y = minBossY;
                 }
+            } else if (gamePanel.getGameMode() == GamePanel.MODE_DODGING && alien.blue) {
+                // Dodging 模式的藍色敵人：像 Stage 模式的俯衝敵人一樣，從上方往下衝
+                alien.move(0, DODGING_BLUE_RUSH_SPEED * gamePanel.getDifficultyMultiplier());
+            } else if (alien.shielded) {
+                alien.updateShieldedMovement();
             } else {
                 alien.updateMovement(gamePanel.getAlienSpeed(), random, 8, GamePanel.WIDTH - 8 - Alien.WIDTH, dropSpeed);
             }
         }
 
-        aliens.removeIf(alien -> !alien.boss && (alien.x + Alien.WIDTH < 0 || alien.x > GamePanel.WIDTH || alien.y + Alien.HEIGHT >= GamePanel.HEIGHT || alien.y + Alien.HEIGHT < 0));
+        aliens.removeIf(alien -> !alien.boss && (
+                alien.x + Alien.WIDTH < 0
+                        || alien.x > GamePanel.WIDTH
+                        || alien.y + Alien.HEIGHT >= GamePanel.HEIGHT
+                        || (!alien.blue && alien.y + Alien.HEIGHT < 0)
+        ));
     }
 
     private void updateEnemyBullets() {
@@ -202,6 +235,10 @@ public class EntityManager {
     }
 
     public void spawnPowerUps(int gameMode, int currentLevel) {
+        if (gameMode == GamePanel.MODE_DODGING) {
+            return; // Dodging 模式改成清完一波才固定掉 1 個道具
+        }
+
         int spawnRate = 1200;
         if (gameMode == GamePanel.MODE_STAGE) {
             spawnRate = Math.max(200, 1200 - (currentLevel - 1) * 120);
@@ -221,41 +258,49 @@ public class EntityManager {
             return;
         }
 
-        Alien bossAlien = getBossAlien();
-        if (bossAlien != null) {
-            updateBossShooting(bossAlien);
+        if (hasBossAlien()) {
+            updateBossShooting();
             return;
         }
 
-        double rateMultiplier = gamePanel.getDifficultyMultiplier();
-
-        int enemyBulletCap = Math.min(10 + gamePanel.getCurrentLevel() * 2, 20);
-        if (enemyBullets.size() >= enemyBulletCap) {
-            int baseCooldown = Math.max(10, 60 - (gamePanel.getCurrentLevel() - 1) * 4);
-            alienShootTimer = scaleInterval(baseCooldown, rateMultiplier);
-            return;
-        }
-
-        if (alienShootTimer > 0) {
-            alienShootTimer--;
-            return;
-        }
-
-        int shootCount = Math.min(1 + (gamePanel.getCurrentLevel() - 1) / 2, 3);
-        int availableShots = Math.min(shootCount, enemyBulletCap - enemyBullets.size());
-        for (int i = 0; i < availableShots; i++) {
-            Alien shooter = aliens.get(random.nextInt(aliens.size()));
-            enemyBullets.add(new Bullet((int) shooter.x + Alien.WIDTH / 2 - Bullet.WIDTH / 2, (int) shooter.y + Alien.HEIGHT, 0, 6, true));
-        }
-
-        int baseMinInterval = Math.max(18, 60 - (gamePanel.getCurrentLevel() - 1) * 4);
-        int baseMaxInterval = Math.max(30, 120 - (gamePanel.getCurrentLevel() - 1) * 6);
-        int minInterval = scaleInterval(baseMinInterval, rateMultiplier);
-        int maxInterval = scaleInterval(baseMaxInterval, rateMultiplier);
-        alienShootTimer = minInterval + random.nextInt(maxInterval - minInterval + 1);
+        updateGreenAlienShooting();
     }
 
-    private void updateBossShooting(Alien bossAlien) {
+    private void updateGreenAlienShooting() {
+        int enemyBulletCap = getEnemyBulletCap();
+
+        for (Alien alien : aliens) {
+            if (!alien.isGreenShooter()) {
+                continue;
+            }
+            if (alien.greenShootIntervalFrames <= 0) {
+                alien.initGreenShooting(random);
+            }
+            if (alien.updateGreenShootTimer() && enemyBullets.size() < enemyBulletCap) {
+                fireGreenAlienShot(alien);
+            }
+        }
+    }
+
+    private int getEnemyBulletCap() {
+        if (gamePanel.getGameMode() == GamePanel.MODE_DODGING) {
+            return 80;
+        }
+        return Math.min(20 + gamePanel.getCurrentLevel() * 4, 40);
+    }
+
+    private void fireGreenAlienShot(Alien shooter) {
+        int startX = (int) shooter.x + Alien.WIDTH / 2 - Bullet.WIDTH / 2;
+        int startY = (int) shooter.y + Alien.HEIGHT;
+        enemyBullets.add(new Bullet(startX, startY, 0, 6, true));
+    }
+
+    private void updateBossShooting() {
+        List<Alien> bossAliens = getBossAliens();
+        if (bossAliens.isEmpty()) {
+            return;
+        }
+
         if (bossSkillTimer > 0) {
             bossSkillTimer--;
         }
@@ -272,7 +317,9 @@ public class EntityManager {
                 bossChargeTimer--;
             }
             if (bossChargeTimer <= 0) {
-                fireBossVolley(bossAlien, getBossTargetPlayer());
+                for (Alien bossAlien : bossAliens) {
+                    fireBossVolley(bossAlien, getBossTargetPlayer(bossAlien));
+                }
                 bossSkillTimer = 600;
                 bossCharging = false;
             }
@@ -281,12 +328,14 @@ public class EntityManager {
         }
 
         if (bossAttackTimer <= 0) {
-            fireBossDownShot(bossAlien);
+            for (Alien bossAlien : bossAliens) {
+                fireBossDownShot(bossAlien);
+            }
             bossAttackTimer = 16;
         }
     }
 
-    private Player getBossTargetPlayer() {
+    private Player getBossTargetPlayer(Alien bossAlien) {
         Player player1 = gamePanel.getPlayer1();
         Player player2 = gamePanel.isTwoPlayer() ? gamePanel.getPlayer2() : null;
 
@@ -295,11 +344,6 @@ public class EntityManager {
         }
         if (!player1.isAlive()) {
             return player2;
-        }
-
-        Alien bossAlien = getBossAlien();
-        if (bossAlien == null) {
-            return player1;
         }
 
         double bossCenterX = bossAlien.x + Alien.WIDTH / 2.0;
@@ -369,6 +413,20 @@ public class EntityManager {
         return null;
     }
 
+    private List<Alien> getBossAliens() {
+        List<Alien> bossAliens = new ArrayList<>();
+        for (Alien alien : aliens) {
+            if (alien.boss) {
+                bossAliens.add(alien);
+            }
+        }
+        return bossAliens;
+    }
+
+    private boolean hasBossAlien() {
+        return getBossAlien() != null;
+    }
+
     private int scaleInterval(int baseInterval, double multiplier) {
         return Math.max(4, (int) Math.round(baseInterval / multiplier));
     }
@@ -406,22 +464,45 @@ public class EntityManager {
                         if (alien.health <= 0) {
                             alienIterator.remove();
                             gamePanel.addScore(100);
-                            if (gamePanel.getGameMode() == GamePanel.MODE_STAGE) {
-                                gamePanel.setBossMusicPlayed(false);
-                                SoundPlayer.playBattle();
-                            } else {
-                                SoundPlayer.stopBackgroundMusic();
+                            SoundPlayer.playExplosion();
+                            if (!hasBossAlien()) {
+                                if (gamePanel.getGameMode() == GamePanel.MODE_STAGE || gamePanel.getGameMode() == GamePanel.MODE_DODGING) {
+                                    gamePanel.setBossMusicPlayed(false);
+                                    SoundPlayer.playBattle();
+                                } else {
+                                    SoundPlayer.stopBackgroundMusic();
+                                }
+                                bossAttackTimer = 0;
+                                bossSkillTimer = 0;
+                                bossChargeTimer = 0;
+                                bossCharging = false;
                             }
-                            bossAttackTimer = 0;
-                            bossSkillTimer = 0;
-                            bossChargeTimer = 0;
-                            bossCharging = false;
+                        }
+                    } else if (alien.shielded) {
+                        if (alien.shieldedWait <= 0) {
+                            return;
+                        }
+                        alien.health--;
+                        if (alien.health <= 0) {
+                            alienIterator.remove();
+                            SoundPlayer.playExplosion();
+                        } else {
+                            SoundPlayer.playHit();
+                        }
+                    } else if (alien.blue) {
+                        alien.health--;
+                        if (alien.health <= 0) {
+                            alienIterator.remove();
+                            gamePanel.addScore(20);
+                            SoundPlayer.playExplosion();
+                        } else {
+                            SoundPlayer.playHit();
                         }
                     } else {
                         alienIterator.remove();
                         gamePanel.addScore(10);
+                        SoundPlayer.playExplosion();
                     }
-                    SoundPlayer.playHit();
                     return;
                 }
             }
@@ -429,7 +510,7 @@ public class EntityManager {
     }
 
     private void checkEnemyBulletHitsPlayer(Player player) {
-        if (!player.isAlive()) {
+        if (!player.isAlive() || player.isInvincible()) {
             return;
         }
         Iterator<Bullet> iterator = enemyBullets.iterator();
@@ -444,7 +525,7 @@ public class EntityManager {
     }
 
     private void checkAlienHitsPlayer(Player player) {
-        if (!player.isAlive()) {
+        if (!player.isAlive() || player.isInvincible()) {
             return;
         }
         Iterator<Alien> iterator = aliens.iterator();
@@ -491,32 +572,107 @@ public class EntityManager {
     }
 
     private void updateDodgingSpawning() {
-        if (spawnDelayTimer > 0 || pendingDodgingSpawnCount > 0 || pendingDodgingBossSpawn) {
+        if (spawnDelayTimer > 0 || pendingDodgingWaveType != DODGING_WAVE_NONE) {
             return;
         }
 
-        if (dodgingBossSpawned && aliens.isEmpty()) {
-            dodgingBossSpawned = false;
-            gamePanel.setRemainingDodgingAliens(50);
-            gamePanel.setDodgingWaveCount(0);
-            pendingDodgingSpawnCount = 1;
-            spawnDelayTimer = SPAWN_DELAY_FRAMES;
-            gamePanel.setDodgingNextSpawnCountdown(SPAWN_DELAY_FRAMES);
-            return;
+        if (dodgingWaveInProgress && aliens.isEmpty()) {
+            dodgingWaveInProgress = false;
+            dropDodgingReward();
+            advanceDodgingWave();
+            queueNextDodgingWave();
+        }
+    }
+
+    private void queueNextDodgingWave() {
+        pendingDodgingWaveType = dodgingWaveStep;
+        pendingDodgingWaveCycle = dodgingCycle;
+        spawnDelayTimer = SPAWN_DELAY_FRAMES;
+        gamePanel.setDodgingNextSpawnCountdown(SPAWN_DELAY_FRAMES);
+    }
+
+    private void advanceDodgingWave() {
+        dodgingWaveStep++;
+        if (dodgingWaveStep > DODGING_WAVE_BOSS) {
+            dodgingWaveStep = DODGING_WAVE_GREEN;
+            dodgingCycle++;
+        }
+    }
+
+    private void spawnDodgingWaveNow(int waveType, int cycle) {
+        int count;
+        if (waveType == DODGING_WAVE_GREEN) {
+            count = 3 * cycle;
+            spawnDodgingNormalAliens(count, false);
+        } else if (waveType == DODGING_WAVE_BLUE) {
+            count = 2 * cycle;
+            spawnDodgingNormalAliens(count, true);
+        } else {
+            count = Math.max(2, cycle);
+            spawnDodgingBossWave(count);
         }
 
-        if (gamePanel.getRemainingDodgingAliens() > 0 && aliens.isEmpty()) {
-            pendingDodgingSpawnCount = 1;
-            spawnDelayTimer = SPAWN_DELAY_FRAMES;
-            gamePanel.setDodgingNextSpawnCountdown(SPAWN_DELAY_FRAMES);
-            return;
+        dodgingWaveInProgress = true;
+        gamePanel.setRemainingDodgingAliens(count);
+        gamePanel.setDodgingWaveCount(gamePanel.getDodgingWaveCount() + 1);
+        gamePanel.setAlienSpeed(gamePanel.getDifficulty(), gamePanel.getGameMode(), gamePanel.getCurrentLevel());
+    }
+
+    private void spawnDodgingNormalAliens(int count, boolean blue) {
+        dodgingBossSpawned = false;
+        for (int i = 0; i < count; i++) {
+            int x = 20 + random.nextInt(GamePanel.WIDTH - 40 - Alien.WIDTH);
+            int y;
+            int health;
+
+            if (blue) {
+                // 藍色敵人從畫面上方外側出現，依序往下衝進場
+                y = -Alien.HEIGHT - random.nextInt(180) - i * 18;
+                health = 2;
+                Alien blueAlien = new Alien(x, y, health, false, false, 0, true);
+                blueAlien.dx = 0;
+                aliens.add(blueAlien);
+            } else {
+                // 綠色敵人維持原本 Dodging 模式的一般移動，並在生成時決定自己的固定射擊週期
+                y = 70 + random.nextInt(180);
+                health = 1;
+                Alien greenAlien = new Alien(x, y, health, false, false, 0, false);
+                greenAlien.initGreenShooting(random);
+                aliens.add(greenAlien);
+            }
+        }
+    }
+
+    private void spawnDodgingBossWave(int count) {
+        dodgingBossSpawned = true;
+        bossAttackTimer = 0;
+        bossSkillTimer = 600;
+        bossChargeTimer = 0;
+        bossCharging = false;
+
+        int left = 50;
+        int right = GamePanel.WIDTH - 50 - Alien.WIDTH;
+        for (int i = 0; i < count; i++) {
+            int x = (count == 1)
+                    ? (GamePanel.WIDTH - Alien.WIDTH) / 2
+                    : left + (right - left) * i / (count - 1);
+            int y = 70 + (i % 2) * 40;
+            Alien bossAlien = new Alien(x, y, 20, true);
+            bossAlien.initBossMovement(random, (GamePanel.HEIGHT / 2.0) - Alien.HEIGHT - 10);
+            aliens.add(bossAlien);
         }
 
-        if (!dodgingBossSpawned && gamePanel.getDodgingWaveCount() >= (6000 / 60)) {
-            pendingDodgingBossSpawn = true;
-            spawnDelayTimer = SPAWN_DELAY_FRAMES;
-            gamePanel.setDodgingNextSpawnCountdown(SPAWN_DELAY_FRAMES);
+        if (!gamePanel.isBossMusicPlayed()) {
+            gamePanel.setBossMusicPlayed(true);
+            SoundPlayer.playBoss();
         }
+    }
+
+    private void dropDodgingReward() {
+        int x = 20 + random.nextInt(GamePanel.WIDTH - 40 - 24);
+        int y = 80;
+        int type = random.nextInt(3);
+        powerUps.add(new PowerUp(x, y, type, 24, 2));
     }
 
     public void spawnBoss() {
@@ -560,9 +716,63 @@ public class EntityManager {
 
     public void spawnStageAliens(int count, int currentLevel) {
         for (int i = 0; i < count; i++) {
-            aliens.add(new Alien(20 + random.nextInt(GamePanel.WIDTH - 40 - Alien.WIDTH), 70 + random.nextInt(180)));
+            Alien greenAlien = new Alien(20 + random.nextInt(GamePanel.WIDTH - 40 - Alien.WIDTH), 70 + random.nextInt(180));
+            greenAlien.initGreenShooting(random);
+            aliens.add(greenAlien);
         }
         gamePanel.setAlienSpeed(gamePanel.getDifficulty(), GamePanel.MODE_STAGE, currentLevel);
+    }
+
+    private void updateShieldedSpawning() {
+        if (gamePanel.getGameMode() == GamePanel.MODE_DODGING) {
+            return; // Dodging 模式只使用固定波次，不再隨機插入護盾敵人
+        }
+        if (spawnDelayTimer > 0) {
+            return;
+        }
+        if (getBossAlien() != null || pendingBossSpawn || pendingDodgingBossSpawn) {
+            return;
+        }
+        if (gamePanel.getGameMode() == GamePanel.MODE_CLASSIC && aliens.isEmpty()) {
+            return;
+        }
+        if (shieldedSpawnTimer > 0) {
+            shieldedSpawnTimer--;
+            return;
+        }
+        int spawnCount = pickShieldedSpawnCount();
+        for (int i = 0; i < spawnCount; i++) {
+            spawnShieldedAlien();
+        }
+        shieldedSpawnTimer = SHIELDED_SPAWN_INTERVAL_FRAMES;
+    }
+
+    private int pickShieldedSpawnCount() {
+        int roll = random.nextInt(3);
+        if (roll == 0) {
+            return 1;
+        }
+        if (roll == 1) {
+            return 3;
+        }
+        return 5;
+    }
+
+    private void spawnShieldedAlien() {
+        int x = 20 + random.nextInt(GamePanel.WIDTH - 40 - Alien.WIDTH);
+        int y = 20;
+        aliens.add(new Alien(x, y, 2, false, true, getShieldedWaitFrames()));
+    }
+
+    private int getShieldedWaitFrames() {
+        switch (gamePanel.getDifficulty()) {
+            case 0:
+                return 360;
+            case 1:
+                return 240;
+            default:
+                return 180;
+        }
     }
 
     private void drawAliens(Graphics2D g2) {
@@ -600,6 +810,26 @@ public class EntityManager {
                     g2.setFont(new Font("Consolas", Font.BOLD, 24));
                     g2.drawString("!", (int) alien.x + 15, (int) alien.y - 16);
                 }
+            } else if (alien.shielded) {
+                g2.setColor(new Color(60, 140, 255));
+                g2.fillRoundRect((int) alien.x, (int) alien.y, Alien.WIDTH, Alien.HEIGHT, 8, 8);
+                g2.setColor(new Color(20, 60, 140));
+                g2.drawRoundRect((int) alien.x, (int) alien.y, Alien.WIDTH, Alien.HEIGHT, 8, 8);
+
+                g2.setColor(new Color(120, 200, 255, 160));
+                g2.drawOval((int) alien.x - 6, (int) alien.y - 6, Alien.WIDTH + 12, Alien.HEIGHT + 12);
+                g2.setColor(new Color(140, 220, 255, 200));
+                g2.drawOval((int) alien.x - 2, (int) alien.y - 2, Alien.WIDTH + 4, Alien.HEIGHT + 4);
+
+                g2.setColor(new Color(230, 245, 255));
+                g2.fillOval((int) alien.x + 9, (int) alien.y + 7, 6, 6);
+                g2.fillOval((int) alien.x + 21, (int) alien.y + 7, 6, 6);
+            } else if (alien.blue) {
+                g2.setColor(new Color(80, 170, 255));
+                g2.fillRoundRect((int) alien.x, (int) alien.y, Alien.WIDTH, Alien.HEIGHT, 6, 6);
+                g2.setColor(new Color(20, 70, 130));
+                g2.fillOval((int) alien.x + 8, (int) alien.y + 7, 6, 6);
+                g2.fillOval((int) alien.x + 22, (int) alien.y + 7, 6, 6);
             } else {
                 g2.setColor(new Color(150, 255, 80));
                 g2.fillRoundRect((int) alien.x, (int) alien.y, Alien.WIDTH, Alien.HEIGHT, 6, 6);

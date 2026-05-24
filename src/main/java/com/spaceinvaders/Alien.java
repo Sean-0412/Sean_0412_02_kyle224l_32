@@ -14,8 +14,18 @@ public class Alien {
     public double dx;
     public int health;
     public boolean boss;
+    public boolean shielded;
+    public boolean blue;
     public static final int WIDTH = 36;
     public static final int HEIGHT = 24;
+    public static final int SHIELDED_WAIT_FRAMES = 180;
+    public static final double SHIELDED_DROP_SPEED = 14.0;
+
+    // Green enemies shoot independently. Each green enemy gets one fixed
+    // random interval when it is created: 1~15 seconds, using the game's
+    // existing 60-frames-per-second timing convention.
+    public static final int GREEN_MIN_SHOOT_INTERVAL_FRAMES = 60;
+    public static final int GREEN_MAX_SHOOT_INTERVAL_FRAMES = 900;
 
     private boolean bossUseCos;
     private double bossPhase;
@@ -24,16 +34,63 @@ public class Alien {
     private double bossBaseY;
     private int bossDir = 1;
 
+    public int shieldedWait;
+    public int greenShootIntervalFrames;
+    public int greenShootTimer;
+
     public Alien(int x, int y) {
         this(x, y, 1, false);
     }
 
     public Alien(int x, int y, int health, boolean boss) {
+        this(x, y, health, boss, false);
+    }
+
+    public Alien(int x, int y, int health, boolean boss, boolean shielded) {
+        this(x, y, health, boss, shielded, SHIELDED_WAIT_FRAMES);
+    }
+
+    public Alien(int x, int y, int health, boolean boss, boolean shielded, int shieldedWait) {
+        this(x, y, health, boss, shielded, shieldedWait, false);
+    }
+
+    public Alien(int x, int y, int health, boolean boss, boolean shielded, int shieldedWait, boolean blue) {
         this.x = x;
         this.y = y;
         this.health = health;
         this.boss = boss;
+        this.shielded = shielded;
+        this.blue = blue;
         this.dx = 1;
+        this.shieldedWait = shielded ? shieldedWait : 0;
+        this.greenShootIntervalFrames = 0;
+        this.greenShootTimer = 0;
+    }
+
+    public boolean isGreenShooter() {
+        return !boss && !shielded && !blue;
+    }
+
+    public void initGreenShooting(Random random) {
+        greenShootIntervalFrames = GREEN_MIN_SHOOT_INTERVAL_FRAMES
+                + random.nextInt(GREEN_MAX_SHOOT_INTERVAL_FRAMES - GREEN_MIN_SHOOT_INTERVAL_FRAMES + 1);
+        greenShootTimer = greenShootIntervalFrames;
+    }
+
+    public boolean updateGreenShootTimer() {
+        if (!isGreenShooter() || greenShootIntervalFrames <= 0) {
+            return false;
+        }
+        if (greenShootTimer > 0) {
+            greenShootTimer--;
+            return false;
+        }
+        greenShootTimer = greenShootIntervalFrames;
+        return true;
+    }
+
+    public void resetGreenShootTimer() {
+        greenShootTimer = greenShootIntervalFrames;
     }
 
     public void initBossMovement(Random random, double maxAmplitude) {
@@ -103,6 +160,17 @@ public class Alien {
         }
     }
 
+    public void updateShieldedMovement() {
+        if (!shielded) {
+            return;
+        }
+        if (shieldedWait > 0) {
+            shieldedWait--;
+            return;
+        }
+        y += SHIELDED_DROP_SPEED;
+    }
+
     public void draw(Graphics g) {
         if (boss) {
             g.setColor(new Color(255, 110, 80));
@@ -131,8 +199,33 @@ public class Alien {
             g.fillArc((int) x - 12, (int) y + 4, 10, 18, 90, 180);
             g.fillArc((int) x + WIDTH + 2, (int) y + 4, 10, 18, 270, 180);
         } else {
-            g.setColor(Color.RED);
-            g.fillRect((int) x, (int) y, WIDTH, HEIGHT);
+            if (shielded) {
+                g.setColor(new Color(60, 140, 255));
+                g.fillRoundRect((int) x, (int) y, WIDTH, HEIGHT, 8, 8);
+                g.setColor(new Color(20, 60, 140));
+                g.drawRoundRect((int) x, (int) y, WIDTH, HEIGHT, 8, 8);
+
+                g.setColor(new Color(120, 200, 255, 160));
+                g.drawOval((int) x - 6, (int) y - 6, WIDTH + 12, HEIGHT + 12);
+                g.setColor(new Color(140, 220, 255, 200));
+                g.drawOval((int) x - 2, (int) y - 2, WIDTH + 4, HEIGHT + 4);
+
+                g.setColor(new Color(230, 245, 255));
+                g.fillOval((int) x + 9, (int) y + 7, 6, 6);
+                g.fillOval((int) x + 21, (int) y + 7, 6, 6);
+            } else if (blue) {
+                g.setColor(new Color(80, 170, 255));
+                g.fillRoundRect((int) x, (int) y, WIDTH, HEIGHT, 6, 6);
+                g.setColor(new Color(20, 70, 130));
+                g.fillOval((int) x + 8, (int) y + 7, 6, 6);
+                g.fillOval((int) x + 22, (int) y + 7, 6, 6);
+            } else {
+                g.setColor(new Color(150, 255, 80));
+                g.fillRoundRect((int) x, (int) y, WIDTH, HEIGHT, 6, 6);
+                g.setColor(new Color(30, 80, 20));
+                g.fillOval((int) x + 8, (int) y + 7, 6, 6);
+                g.fillOval((int) x + 22, (int) y + 7, 6, 6);
+            }
         }
     }
 
