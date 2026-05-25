@@ -48,6 +48,8 @@ public class MenuPanel extends JPanel implements KeyListener {
         setFocusable(true);
         addKeyListener(this);
         requestFocusInWindow();
+        // Play menu background music
+        SoundPlayer.playMenu();
     }
     
     public void setInitialStateToDifficultyMenu(int gameMode) {
@@ -531,9 +533,13 @@ public class MenuPanel extends JPanel implements KeyListener {
             repaint();
         } else if (code == KeyEvent.VK_ENTER) {
             selectedPlayerCount = selectedOption;
-            currentState = STATE_DIFFICULTY;
-            selectedOption = 1;
-            repaint();
+            if (selectedGameMode == GamePanel.MODE_CLASSIC) {
+                gameFrame.startGameWithSettings(selectedGameMode, 1, selectedPlayerCount == 1);
+            } else {
+                currentState = STATE_DIFFICULTY;
+                selectedOption = 1;
+                repaint();
+            }
         } else if (code == KeyEvent.VK_ESCAPE) {
             currentState = STATE_GAME_MODE;
             selectedOption = selectedGameMode;

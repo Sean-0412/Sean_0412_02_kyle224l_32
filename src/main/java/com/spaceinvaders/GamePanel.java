@@ -4,228 +4,88 @@ import javax.swing.JPanel;
 import javax.swing.Timer;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Polygon;
-import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.awt.geom.Rectangle2D;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
 
-/**
- * Main game panel for Space Invaders game.
- * Handles game logic, rendering, and user input.
- * 
- * Game Modes:
- * - MODE_CLASSIC (0): Only left/right movement, game ends when enemies reach the line
- * - MODE_DODGING (1): Full movement (up/down/left/right), game ends when hit by enemies
- * - MODE_STAGE (2): Clear a sequence of stages, enemies get tougher each wave
- */
 public class GamePanel extends JPanel implements ActionListener, KeyListener {
-    // Game modes
-    private static final int MODE_CLASSIC = 0;
-    private static final int MODE_DODGING = 1;
-    private static final int MODE_STAGE = 2;
-    
-    private static final int WIDTH = 800;
-    private static final int HEIGHT = 600;
-
-    private static final int PLAYER_WIDTH = 70;
-    private static final int PLAYER_HEIGHT = 18;
-    private static final int PLAYER_SPEED = 7;
-    private static final int PLAYER_VERTICAL_SPEED = 5;
-
-    private static final int BULLET_WIDTH = 4;
-    private static final int BULLET_HEIGHT = 12;
-    private static final int MAX_BULLETS = 12;
-    private static final int ENEMY_BULLET_SPEED = 6;
-    private static final int MAX_ENEMY_BULLETS = 10;
-    private static final int ALIEN_SHOOT_MIN_INTERVAL = 60;
-    private static final int ALIEN_SHOOT_MAX_INTERVAL = 120;
-    private static final int BOSS_HEALTH = 20;
-    private static final double ALIEN_DROP_SPEED = 0.18;
-
-    private static final int MAX_POWERUPS = 2;
-    private static final int POWERUP_SIZE = 24;
-    private static final int POWERUP_FALL_SPEED = 2;
-    private static final int POWERUP_SPAWN_RATE = 1200;
-    private static final int POWERUP_STAGE_RATE_REDUCTION = 120; // stage increases drop chance
-    private static final int POWERUP_MIN_STAGE_SPAWN_RATE = 200;
-    private static final int ATTACK_BOOST_DURATION = 600;
-    private static final int SHIELD_DURATION = 300; // 5 seconds (300 frames at 60fps)
-
-    private static final int ULTIMATE_DURATION = 300; // 5 seconds (300 frames at 60fps)
-    private static final int ULTIMATE_COOLDOWN = 600;  // 10 seconds cooldown
-    private static final int ULTIMATE_FIRE_RATE = 3;   // Fire every 3 frames
-
-    private static final int ALIEN_WIDTH = 36;
-    private static final int ALIEN_HEIGHT = 24;
-    private static final int ALIEN_COLS = 10;
-    private static final int ALIEN_ROWS = 4;
-    private static final int ALIEN_H_SPACING = 18;
-    private static final int ALIEN_V_SPACING = 14;
-
-    private static final int START_X = 80;
-    private static final int START_Y = 70;
-
-    private final Timer gameTimer;
-    private final List<Alien> aliens = new ArrayList<Alien>();
-    private final List<Bullet> bullets = new ArrayList<Bullet>();
-    private final List<Bullet> player2Bullets = new ArrayList<Bullet>();
-    private final List<Bullet> enemyBullets = new ArrayList<Bullet>();
-    private final List<PowerUp> powerUps = new ArrayList<PowerUp>();
-
-    private int playerX;
-    private int playerY;
-    private int player2X;
-    private int player2Y;
-    private boolean twoPlayer;
-    private int alienShootTimer;
-    private int playerShotCount;
-    private int player2ShotCount;
-    private int playerAttackBoostRemaining;
-    private int player2AttackBoostRemaining;
-    private int playerAttackMultiplier;
-    private int player2AttackMultiplier;
-    private int shieldRemaining;
-    private boolean bossSpawned;
-    
-    private boolean ultimateActive;
-    private int ultimateDuration;
-    private int ultimateCooldown;
-    private int ultimateFireCounter;
-
-    private boolean moveLeft;
-    private boolean moveRight;
-    private boolean moveUp;
-    private boolean moveDown;
-    private boolean shootPressed;
-
-    private boolean moveLeft2;
-    private boolean moveRight2;
-    private boolean moveUp2;
-    private boolean moveDown2;
-    private boolean shoot2Pressed;
-    private int fireCooldown2;
-
+    // Game constants
+    public static final int WIDTH = 800;
+    public static final int HEIGHT = 600;
+    public static final int MODE_CLASSIC = 0;
+    public static final int MODE_DODGING = 1;
+    public static final int MODE_STAGE = 2;
     private static final int START_LIVES = 5;
+    private static final int MAX_STAGE_LEVELS = 5;
 
-    private int fireCooldown;
+    // Game state
+    private final Timer gameTimer;
     private int score;
-    private int playerLives;
-    private int player2Lives;
-
     private boolean gameOver;
     private boolean gameWin;
-    private boolean gameOverSoundPlayed;
-    private boolean battleMusicPlayed;
-    private boolean bossMusicPlayed;
-    private boolean defeatSoundPlayed;
-    
     private boolean isPaused;
-    private int resumeCountdown; // 3, 2, 1, then resume
-    private int pausedSelectedOption; // 0 = Continue, 1 = Return to Difficulty
-    private static final int PAUSE_CONTINUE = 0;
-    private static final int PAUSE_RETURN = 1;
-
-    private double alienBaseSpeed;
-    private double alienSpeed;
-    private int safeLineY; // For classic and stage modes: the line that enemies shouldn't cross
-    
-    private int difficulty; // 0 = Easy, 1 = Normal, 2 = Hard
-    private int gameMode;   // 0 = Classic, 1 = Dodging, 2 = Stage
+    private int resumeCountdown;
+    private int pausedSelectedOption;
     private int currentLevel;
-    private static final int MAX_STAGE_LEVELS = 5;
+
+    // Game mode specific state
     private int remainingStageAliens;
     private int stageSpawnBatch = 5;
     private int stageNextSpawnCountdown;
-    private static final int STAGE_SPAWN_INTERVAL = 120;
-    private static final int STAGE_SPAWN_MIN_INTERVAL = 35;
-    
-    // Dodging mode specific variables
     private int remainingDodgingAliens;
     private int dodgingNextSpawnCountdown;
-    private boolean dodgingBossSpawned;
     private int dodgingWaveCount;
-    private static final int DODGING_SPAWN_INTERVAL = 60;
-    private static final int DODGING_BOSS_SPAWN_TIME = 6000; // 100 seconds at 60fps
-    private static final int DODGING_TOTAL_ALIENS = 50;
     
-    private Random random = new Random();
-    private GameFrame gameFrame; // Reference to parent frame
+    // Sound flags
+    private boolean battleMusicPlayed;
+    private boolean bossMusicPlayed;
+    private boolean gameOverSoundPlayed;
+    private boolean defeatSoundPlayed;
 
-    public GamePanel() {
-        this(null, MODE_CLASSIC, 1, false); // Default to Classic mode with Normal difficulty
-    }
-    
-    public GamePanel(int gameMode, int difficulty) {
-        this(null, gameMode, difficulty, false);
-    }
-    
-    public GamePanel(GameFrame gameFrame, int gameMode, int difficulty) {
-        this(gameFrame, gameMode, difficulty, false);
-    }
-    
+    // Components
+    private final GameFrame gameFrame;
+    private final Player player1;
+    private Player player2;
+    private final EntityManager entityManager;
+    private final GameRenderer gameRenderer;
+
+    // Settings
+    private final int gameMode;
+    private final int difficulty;
+    private final boolean twoPlayer;
+    private double alienBaseSpeed;
+    private double alienSpeed;
+
+
     public GamePanel(GameFrame gameFrame, int gameMode, int difficulty, boolean twoPlayer) {
-        String modeName = gameMode == MODE_CLASSIC ? "Classic" : (gameMode == MODE_DODGING ? "Dodging" : "Stage");
-        System.out.println("GamePanel: Constructor starting... (Mode: " + modeName + ", Difficulty: " + difficulty + ", Two Player: " + twoPlayer + ")");
         this.gameFrame = gameFrame;
         this.gameMode = gameMode;
         this.difficulty = difficulty;
         this.twoPlayer = twoPlayer;
-        this.safeLineY = HEIGHT - 70;
-        this.currentLevel = 1;
-        this.playerLives = START_LIVES;
-        this.player2Lives = START_LIVES;
-        this.alienShootTimer = 0;
-        this.playerAttackBoostRemaining = 0;
-        this.player2AttackBoostRemaining = 0;
-        this.playerAttackMultiplier = 1;
-        this.player2AttackMultiplier = 1;
-        this.bossSpawned = false;
-        this.ultimateActive = false;
-        this.ultimateDuration = 0;
-        this.ultimateCooldown = 0;
-        this.ultimateFireCounter = 0;
-        this.playerShotCount = 1;
-        this.player2ShotCount = 1;
-        this.shieldRemaining = 0;
         
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
         setFocusable(true);
         addKeyListener(this);
 
-        playerX = (WIDTH - PLAYER_WIDTH) / 2;
-        playerY = HEIGHT - 70;
-        player2X = (WIDTH - PLAYER_WIDTH) / 2;
-        player2Y = HEIGHT - 110;
+        this.entityManager = new EntityManager(this);
+        this.player1 = new Player(WIDTH / 2 - 35, HEIGHT - 70, gameMode, true, START_LIVES);
+        if (twoPlayer) {
+            this.player2 = new Player(WIDTH / 2 - 35, HEIGHT - 110, gameMode, false, START_LIVES);
+        }
+        this.gameRenderer = new GameRenderer(this, entityManager);
 
-        System.out.println("GamePanel: Initializing aliens...");
-        initAliens();
-
-        System.out.println("GamePanel: Creating timer...");
-        gameTimer = new Timer(16, this);
-        System.out.println("GamePanel: Constructor finished.");
-    }
-    
-    @Deprecated
-    public GamePanel(int difficulty) {
-        this(MODE_CLASSIC, difficulty);
+        this.gameTimer = new Timer(16, this);
+        restartGame();
     }
 
     public void startGame() {
         if (!gameTimer.isRunning()) {
             gameTimer.start();
         }
-        // Play battle music on game start
         if (!battleMusicPlayed) {
             battleMusicPlayed = true;
             SoundPlayer.playBattle();
@@ -233,99 +93,25 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         requestFocusInWindow();
     }
 
-    private void initAliens() {
-        aliens.clear();
-        int rows = Math.min(ALIEN_ROWS + currentLevel - 1, 7);
-
-        if (gameMode == MODE_STAGE) {
-            bossSpawned = false;
-            remainingStageAliens = 20;
-            int initialSpawn = Math.min(stageSpawnBatch, remainingStageAliens);
-            spawnStageAliens(initialSpawn);
-            remainingStageAliens -= initialSpawn;
-            stageNextSpawnCountdown = STAGE_SPAWN_INTERVAL;
-        } else if (gameMode == MODE_DODGING) {
-            // Dodging mode: no initial aliens, spawn them one by one
-            dodgingBossSpawned = false;
-            remainingDodgingAliens = DODGING_TOTAL_ALIENS;
-            dodgingWaveCount = 0;
-            dodgingNextSpawnCountdown = DODGING_SPAWN_INTERVAL;
-        } else {
-            for (int row = 0; row < rows; row++) {
-                for (int col = 0; col < ALIEN_COLS; col++) {
-                    int x = START_X + col * (ALIEN_WIDTH + ALIEN_H_SPACING);
-                    int y = START_Y + row * (ALIEN_HEIGHT + ALIEN_V_SPACING);
-                    aliens.add(new Alien(x, y));
-                }
-            }
-        }
-        
-        // Set initial speed based on difficulty and stage mode
-        switch(difficulty) {
-            case 0: // Easy
-                alienBaseSpeed = (gameMode == MODE_STAGE || gameMode == MODE_DODGING) ? 1.0 + (currentLevel - 1) * 0.25 : 0.8;
-                break;
-            case 1: // Normal
-                alienBaseSpeed = (gameMode == MODE_STAGE || gameMode == MODE_DODGING) ? 1.8 + (currentLevel - 1) * 0.25 : 1.8;
-                break;
-            case 2: // Hard
-                alienBaseSpeed = (gameMode == MODE_STAGE || gameMode == MODE_DODGING) ? 2.6 + (currentLevel - 1) * 0.25 : 3.0;
-                break;
-            default:
-                alienBaseSpeed = 1.8;
-        }
-        alienSpeed = alienBaseSpeed;
-    }
-
     private void restartGame() {
-        playerLives = START_LIVES;
-        player2Lives = START_LIVES;
+        SoundPlayer.stopAllSounds();
         score = 0;
         currentLevel = 1;
-        bullets.clear();
-        player2Bullets.clear();
-        enemyBullets.clear();
-        powerUps.clear();
-        playerAttackBoostRemaining = 0;
-        player2AttackBoostRemaining = 0;
-        playerAttackMultiplier = 1;
-        player2AttackMultiplier = 1;
-        shieldRemaining = 0;
-        bossSpawned = false;
-        dodgingBossSpawned = false;
-        ultimateActive = false;
-        ultimateDuration = 0;
-        ultimateCooldown = 0;
-        ultimateFireCounter = 0;
-        playerShotCount = 1;
-        player2ShotCount = 1;
-        playerX = (WIDTH - PLAYER_WIDTH) / 2;
-        playerY = HEIGHT - 70;
-        player2X = (WIDTH - PLAYER_WIDTH) / 2;
-        player2Y = HEIGHT - 110;
         gameOver = false;
         gameWin = false;
-        gameOverSoundPlayed = false;
-        battleMusicPlayed = false;
-        bossMusicPlayed = false;
-        defeatSoundPlayed = false;
-        fireCooldown = 0;
-        fireCooldown2 = 0;
-        alienShootTimer = 0;
-        playerShotCount = 1;
-        moveLeft = false;
-        moveRight = false;
-        moveUp = false;
-        moveDown = false;
-        moveLeft2 = false;
-        moveRight2 = false;
-        moveUp2 = false;
-        moveDown2 = false;
-        shootPressed = false;
-        shoot2Pressed = false;
         isPaused = false;
         resumeCountdown = 0;
-        initAliens();
+        
+        battleMusicPlayed = false;
+        bossMusicPlayed = false;
+        gameOverSoundPlayed = false;
+        defeatSoundPlayed = false;
+
+        player1.reset();
+        if (twoPlayer) {
+            player2.reset();
+        }
+        entityManager.initAliens(gameMode, currentLevel, difficulty);
     }
 
     @Override
@@ -335,530 +121,79 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void updateGame() {
-        if (gameOver) {
-            return;
-        }
-        
-        // Handle pause resume countdown
-        if (isPaused && resumeCountdown > 0) {
-            resumeCountdown--;
-            if (resumeCountdown == 0) {
-                isPaused = false;
-            }
-            return;
-        }
-        
+        if (gameOver) return;
+
         if (isPaused) {
+            if (resumeCountdown > 0) {
+                resumeCountdown--;
+                if (resumeCountdown == 0) {
+                    isPaused = false;
+                }
+            }
             return;
         }
 
-        updatePlayer();
+        player1.update();
         if (twoPlayer) {
-            updatePlayer2();
-        }
-        updateBullets();
-        updateEnemyBullets();
-        updatePowerUps();
-        spawnPowerUps();
-        if (playerAttackBoostRemaining > 0) {
-            playerAttackBoostRemaining--;
-            if (playerAttackBoostRemaining == 0) {
-                playerAttackMultiplier = 1;
-            }
-        }
-        if (player2AttackBoostRemaining > 0) {
-            player2AttackBoostRemaining--;
-            if (player2AttackBoostRemaining == 0) {
-                player2AttackMultiplier = 1;
-            }
-        }
-        if (shieldRemaining > 0) {
-            shieldRemaining--;
+            player2.update();
         }
         
-        // Update ultimate ability
-        if (ultimateActive) {
-            ultimateDuration--;
-            if (ultimateDuration <= 0) {
-                ultimateActive = false;
-                ultimateCooldown = ULTIMATE_COOLDOWN;
-            }
-        }
+        entityManager.update(player1, player2, twoPlayer);
+        entityManager.spawnPowerUps(gameMode, currentLevel);
+        entityManager.updateStageSpawning();
         
-        if (ultimateCooldown > 0) {
-            ultimateCooldown--;
-        }
-        
-        updateStageSpawning();
-        updateAliens();
-        updateAlienShooting();
-        checkCollisions();
+        setAlienSpeed(difficulty, gameMode, currentLevel);
         checkGameState();
-
-        if (fireCooldown > 0) {
-            fireCooldown--;
-        }
-        if (fireCooldown2 > 0) {
-            fireCooldown2--;
-        }
-    }
-
-    private void updatePlayer() {
-        if (playerLives <= 0) {
-            return;
-        }
-        if (moveLeft) {
-            playerX -= PLAYER_SPEED;
-        }
-        if (moveRight) {
-            playerX += PLAYER_SPEED;
-        }
-        
-        // Allow full movement in dodging and stage modes
-        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
-            if (moveUp) {
-                playerY -= PLAYER_VERTICAL_SPEED;
-            }
-            if (moveDown) {
-                playerY += PLAYER_VERTICAL_SPEED;
-            }
-        }
-
-        if (playerX < 0) {
-            playerX = 0;
-        }
-        if (playerX > WIDTH - PLAYER_WIDTH) {
-            playerX = WIDTH - PLAYER_WIDTH;
-        }
-        
-        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
-            if (playerY < 50) {
-                playerY = 50;
-            }
-            if (playerY > HEIGHT - PLAYER_HEIGHT - 10) {
-                playerY = HEIGHT - PLAYER_HEIGHT - 10;
-            }
-        } else {
-            // Classic mode: keep player at safe line
-            playerY = safeLineY;
-        }
-
-        if (shootPressed && fireCooldown == 0 && bullets.size() < MAX_BULLETS) {
-            int bulletY = playerY - BULLET_HEIGHT;
-            int effectiveShotCount = getEffectiveShotCount(true);
-            int shotsToSpawn = Math.min(effectiveShotCount, MAX_BULLETS - bullets.size());
-            int[] offsets = getShotOffsets(shotsToSpawn);
-            for (int offset : offsets) {
-                bullets.add(new Bullet(playerX + offset, bulletY));
-            }
-            fireCooldown = 10;
-            SoundPlayer.playShoot();
-        }
-        
-        // Ultimate ability continuous fire
-        if (ultimateActive) {
-            ultimateFireCounter++;
-            if (ultimateFireCounter % ULTIMATE_FIRE_RATE == 0) {
-                int bulletY = playerY - BULLET_HEIGHT;
-                int leftX = playerX + 10;
-                int centerX = playerX + (PLAYER_WIDTH / 2) - (BULLET_WIDTH / 2);
-                int rightX = playerX + PLAYER_WIDTH - 20;
-
-                if (bullets.size() < MAX_BULLETS) {
-                    bullets.add(new Bullet(leftX, bulletY));
-                }
-                if (bullets.size() < MAX_BULLETS) {
-                    bullets.add(new Bullet(centerX, bulletY));
-                }
-                if (bullets.size() < MAX_BULLETS) {
-                    bullets.add(new Bullet(rightX, bulletY));
-                }
-                SoundPlayer.playShoot();
-            }
-        }
-    }
-
-    private void updatePlayer2() {
-        if (player2Lives <= 0) {
-            return;
-        }
-        if (moveLeft2) {
-            player2X -= PLAYER_SPEED;
-        }
-        if (moveRight2) {
-            player2X += PLAYER_SPEED;
-        }
-
-        // Allow full movement in dodging and stage modes
-        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
-            if (moveUp2) {
-                player2Y -= PLAYER_VERTICAL_SPEED;
-            }
-            if (moveDown2) {
-                player2Y += PLAYER_VERTICAL_SPEED;
-            }
-        }
-
-        if (player2X < 0) {
-            player2X = 0;
-        }
-        if (player2X > WIDTH - PLAYER_WIDTH) {
-            player2X = WIDTH - PLAYER_WIDTH;
-        }
-
-        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
-            if (player2Y < 50) {
-                player2Y = 50;
-            }
-            if (player2Y > HEIGHT - PLAYER_HEIGHT - 10) {
-                player2Y = HEIGHT - PLAYER_HEIGHT - 10;
-            }
-        } else {
-            player2Y = safeLineY;
-        }
-
-        if (shoot2Pressed && fireCooldown2 == 0 && player2Bullets.size() < MAX_BULLETS) {
-            int bulletY = player2Y - BULLET_HEIGHT;
-            int effectiveShotCount = getEffectiveShotCount(false);
-            int shotsToSpawn = Math.min(effectiveShotCount, MAX_BULLETS - player2Bullets.size());
-            int[] offsets = getShotOffsets(shotsToSpawn);
-            for (int offset : offsets) {
-                player2Bullets.add(new Bullet(player2X + offset, bulletY));
-            }
-            fireCooldown2 = 10;
-            SoundPlayer.playShoot();
-        }
-    }
-
-    private void updateBullets() {
-        Iterator<Bullet> iterator = bullets.iterator();
-        while (iterator.hasNext()) {
-            Bullet bullet = iterator.next();
-            bullet.update();
-            if (bullet.y + Bullet.HEIGHT < 0) {
-                iterator.remove();
-            }
-        }
-
-        Iterator<Bullet> player2Iterator = player2Bullets.iterator();
-        while (player2Iterator.hasNext()) {
-            Bullet bullet = player2Iterator.next();
-            bullet.update();
-            if (bullet.y + Bullet.HEIGHT < 0) {
-                player2Iterator.remove();
-            }
-        }
-    }
-
-    private int getEffectiveShotCount(boolean forPlayer1) {
-        int count = forPlayer1 ? playerShotCount : player2ShotCount;
-        int multiplier = forPlayer1 ? playerAttackMultiplier : player2AttackMultiplier;
-        return Math.max(1, count * multiplier);
-    }
-
-    private int[] getShotOffsets(int shotCount) {
-        int[] offsets = new int[shotCount];
-        int maxOffset = PLAYER_WIDTH - BULLET_WIDTH;
-        if (shotCount == 1) {
-            offsets[0] = maxOffset / 2;
-            return offsets;
-        }
-        for (int i = 0; i < shotCount; i++) {
-            offsets[i] = (int) Math.round((double) i * maxOffset / (shotCount - 1));
-        }
-        return offsets;
-    }
-
-    private void updateAliens() {
-        if (aliens.isEmpty()) {
-            return;
-        }
-
-        for (Alien alien : aliens) {
-            alien.updateMovement(alienSpeed, random, 8, WIDTH - 8 - ALIEN_WIDTH, ALIEN_DROP_SPEED);
-        }
-
-        // Remove aliens that move fully off-screen, or touch the bottom edge in stage mode.
-        Iterator<Alien> iterator = aliens.iterator();
-        while (iterator.hasNext()) {
-            Alien alien = iterator.next();
-            if (alien.x + ALIEN_WIDTH < 0 || alien.x > WIDTH || alien.y + ALIEN_HEIGHT >= HEIGHT || alien.y + ALIEN_HEIGHT < 0) {
-                iterator.remove();
-            }
-        }
-
-        // Increase difficulty over time through score milestones.
-        if (gameMode == MODE_STAGE) {
-            alienSpeed = alienBaseSpeed + (currentLevel - 1) * 0.15 + (score / 100.0) * 0.18;
-        } else if (gameMode == MODE_DODGING) {
-            alienSpeed = alienBaseSpeed + (score / 100.0) * 0.15;
-        } else {
-            alienSpeed = alienBaseSpeed + (score / 100.0) * 0.22;
-        }
-    }
-
-    private void updateEnemyBullets() {
-        Iterator<Bullet> iterator = enemyBullets.iterator();
-        while (iterator.hasNext()) {
-            Bullet bullet = iterator.next();
-            bullet.update();
-            if (bullet.y > HEIGHT) {
-                iterator.remove();
-            }
-        }
-    }
-
-    private void updatePowerUps() {
-        Iterator<PowerUp> iterator = powerUps.iterator();
-        Rectangle2D playerRect = new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
-        Rectangle2D player2Rect = new Rectangle2D.Double(player2X, player2Y, PLAYER_WIDTH, PLAYER_HEIGHT);
-        while (iterator.hasNext()) {
-            PowerUp powerUp = iterator.next();
-            powerUp.update();
-            if (powerUp.y > HEIGHT) {
-                iterator.remove();
-                continue;
-            }
-            if (powerUp.getBounds().intersects(playerRect)) {
-                applyPowerUp(powerUp.type, true);
-                iterator.remove();
-            } else if (twoPlayer && powerUp.getBounds().intersects(player2Rect)) {
-                applyPowerUp(powerUp.type, false);
-                iterator.remove();
-            }
-        }
-    }
-
-    private void spawnPowerUps() {
-        int spawnRate = POWERUP_SPAWN_RATE;
-        if (gameMode == MODE_STAGE) {
-            spawnRate = Math.max(POWERUP_MIN_STAGE_SPAWN_RATE,
-                    POWERUP_SPAWN_RATE - (currentLevel - 1) * POWERUP_STAGE_RATE_REDUCTION);
-        }
-        if (powerUps.size() >= MAX_POWERUPS || random.nextInt(spawnRate) != 0 || gameOver || isPaused) {
-            return;
-        }
-        int x = 20 + random.nextInt(WIDTH - 40 - POWERUP_SIZE);
-        int y = 40;
-        int type;
-        if (gameMode == MODE_STAGE) {
-            int pick = random.nextInt(3);
-            if (pick == 0) {
-                type = PowerUp.TYPE_HEALTH;
-            } else if (pick == 1) {
-                type = PowerUp.TYPE_ATTACK;
-            } else {
-                type = PowerUp.TYPE_SHIELD;
-            }
-        } else {
-            type = random.nextBoolean() ? PowerUp.TYPE_HEALTH : PowerUp.TYPE_ATTACK;
-        }
-        powerUps.add(new PowerUp(x, y, type, POWERUP_SIZE, POWERUP_FALL_SPEED));
-    }
-
-    private void applyPowerUp(int type, boolean forPlayer1) {
-        if (type == PowerUp.TYPE_HEALTH) {
-            if (forPlayer1) {
-                playerLives = Math.min(playerLives + 1, START_LIVES + 3);
-            } else {
-                player2Lives = Math.min(player2Lives + 1, START_LIVES + 3);
-            }
-        } else if (type == PowerUp.TYPE_ATTACK) {
-            if (forPlayer1) {
-                playerAttackMultiplier *= 2;
-                playerAttackBoostRemaining = ATTACK_BOOST_DURATION;
-            } else {
-                player2AttackMultiplier *= 2;
-                player2AttackBoostRemaining = ATTACK_BOOST_DURATION;
-            }
-        } else if (type == PowerUp.TYPE_SHIELD) {
-            shieldRemaining = SHIELD_DURATION;
-        }
-    }
-
-    private void updateAlienShooting() {
-        if (aliens.isEmpty()) {
-            return;
-        }
-
-        int enemyBulletCap = Math.min(MAX_ENEMY_BULLETS + currentLevel * 2, 20);
-        if (enemyBullets.size() >= enemyBulletCap) {
-            alienShootTimer = Math.max(10, ALIEN_SHOOT_MIN_INTERVAL - (currentLevel - 1) * 4);
-            return;
-        }
-
-        if (alienShootTimer > 0) {
-            alienShootTimer--;
-            return;
-        }
-
-        int shootCount = Math.min(1 + (currentLevel - 1) / 2, 3);
-        int availableShots = Math.min(shootCount, enemyBulletCap - enemyBullets.size());
-        for (int i = 0; i < availableShots; i++) {
-            Alien shooter = aliens.get(random.nextInt(aliens.size()));
-            int bulletX = (int) shooter.x + ALIEN_WIDTH / 2 - BULLET_WIDTH / 2;
-            int bulletY = (int) shooter.y + ALIEN_HEIGHT;
-            enemyBullets.add(new Bullet(bulletX, bulletY, ENEMY_BULLET_SPEED, true));
-        }
-
-        int minInterval = Math.max(18, ALIEN_SHOOT_MIN_INTERVAL - (currentLevel - 1) * 4);
-        int maxInterval = Math.max(30, ALIEN_SHOOT_MAX_INTERVAL - (currentLevel - 1) * 6);
-        alienShootTimer = minInterval + random.nextInt(maxInterval - minInterval + 1);
-    }
-
-    private void checkCollisions() {
-        checkBulletHitsAliens(bullets);
-        checkBulletHitsAliens(player2Bullets);
-
-        Rectangle2D playerRect = new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
-        Rectangle2D player2Rect = new Rectangle2D.Double(player2X, player2Y, PLAYER_WIDTH, PLAYER_HEIGHT);
-        Iterator<Bullet> enemyIterator = enemyBullets.iterator();
-        while (enemyIterator.hasNext()) {
-            Bullet enemyBullet = enemyIterator.next();
-            boolean hitPlayer1 = enemyBullet.getBounds().intersects(playerRect);
-            boolean hitPlayer2 = enemyBullet.getBounds().intersects(player2Rect);
-            if (hitPlayer1 || hitPlayer2) {
-                enemyIterator.remove();
-                if (shieldRemaining > 0) {
-                    shieldRemaining = 0;
-                    SoundPlayer.playHit();
-                } else {
-                    handlePlayerHit(hitPlayer1, hitPlayer2);
-                }
-                return;
-            }
-        }
-    }
-
-    private void checkBulletHitsAliens(List<Bullet> bulletList) {
-        Iterator<Bullet> bulletIterator = bulletList.iterator();
-        while (bulletIterator.hasNext()) {
-            Bullet bullet = bulletIterator.next();
-            Rectangle2D bulletRect = bullet.getBounds();
-
-            boolean hit = false;
-            Iterator<Alien> alienIterator = aliens.iterator();
-            while (alienIterator.hasNext()) {
-                Alien alien = alienIterator.next();
-                Rectangle2D alienRect = alien.getBounds();
-                if (bulletRect.intersects(alienRect)) {
-                    bulletIterator.remove();
-                    if (alien.boss) {
-                        alien.health--;
-                        if (alien.health <= 0) {
-                            alienIterator.remove();
-                            score += 100;
-                        }
-                    } else {
-                        alienIterator.remove();
-                        score += 10;
-                    }
-                    SoundPlayer.playHit();
-                    hit = true;
-                    break;
-                }
-            }
-
-            if (hit) {
-                continue;
-            }
-        }
     }
 
     private void checkGameState() {
-        if (aliens.isEmpty()) {
+        if (entityManager.areAliensEmpty()) {
             if (gameMode == MODE_STAGE) {
                 if (remainingStageAliens <= 0) {
-                    if (!bossSpawned) {
-                        spawnBoss();
+                    if (entityManager.isBossSpawnPending()) {
+                        return;
+                    }
+                    if (!entityManager.isBossSpawned()) {
+                        entityManager.spawnBoss();
                         return;
                     }
                     advanceToNextStage();
-                    return;
                 }
-                return;
-            } else if (gameMode == MODE_DODGING) {
-                // In dodging mode, continue spawning until boss is defeated
-                // The spawning is handled in updateDodgingSpawning()
-                return;
-            }
-            setGameOver(true);
-            return;
-        }
-        
-        // Check for collisions with player (only in dodging mode)
-        if (gameMode == MODE_DODGING || gameMode == MODE_STAGE) {
-            Iterator<Alien> alienIterator = aliens.iterator();
-            while (alienIterator.hasNext()) {
-                Alien alien = alienIterator.next();
-                boolean hitPlayer1 = alien.getBounds().intersects(new Rectangle2D.Double(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT));
-                boolean hitPlayer2 = alien.getBounds().intersects(new Rectangle2D.Double(player2X, player2Y, PLAYER_WIDTH, PLAYER_HEIGHT));
-                if (hitPlayer1 || hitPlayer2) {
-                    alienIterator.remove();
-                    if (shieldRemaining > 0) {
-                        shieldRemaining = 0;
-                        SoundPlayer.playHit();
-                    } else {
-                        handlePlayerHit(hitPlayer1, hitPlayer2);
-                    }
-                    return;
-                }
+            } else if (gameMode != MODE_DODGING) {
+                setGameOver(true);
             }
         }
-        
-        // Check if aliens crossed the safety line (classic mode only)
+
         if (gameMode == MODE_CLASSIC) {
-            for (Alien alien : aliens) {
-                if (alien.y + ALIEN_HEIGHT >= safeLineY) {
+            for (Alien alien : entityManager.getAliens()) {
+                if (alien.y + 24 >= HEIGHT - 70) {
                     setGameOver(false);
                     return;
                 }
             }
         }
+        
+        if (!player1.isAlive() && (!twoPlayer || !player2.isAlive())) {
+            setGameOver(false);
+        }
     }
 
-    private void handlePlayerHit(boolean hitPlayer1, boolean hitPlayer2) {
-        if (hitPlayer1 && playerLives > 0) {
-            playerLives--;
+    private void advanceToNextStage() {
+        if (currentLevel < MAX_STAGE_LEVELS) {
+            currentLevel++;
+            player1.increaseShotCount();
+            if(twoPlayer) player2.increaseShotCount();
+            entityManager.initAliens(gameMode, currentLevel, difficulty);
+        } else {
+            setGameOver(true);
         }
-        if (hitPlayer2 && player2Lives > 0) {
-            player2Lives--;
-        }
-        SoundPlayer.playHit();
-        if (playerLives <= 0 && (!twoPlayer || player2Lives <= 0)) {
-            setGameOver(false);
-            return;
-        }
-
-        // Reset only the hit player's position if they still have lives remaining.
-        if (hitPlayer1 && playerLives > 0) {
-            playerX = (WIDTH - PLAYER_WIDTH) / 2;
-            playerY = safeLineY;
-        }
-        if (hitPlayer2 && player2Lives > 0) {
-            player2X = (WIDTH - PLAYER_WIDTH) / 2;
-            player2Y = safeLineY;
-        }
-        fireCooldown = 0;
-        fireCooldown2 = 0;
-        bullets.clear();
-        player2Bullets.clear();
-        moveLeft = false;
-        moveRight = false;
-        moveUp = false;
-        moveDown = false;
-        moveLeft2 = false;
-        moveRight2 = false;
-        moveUp2 = false;
-        moveDown2 = false;
-        shootPressed = false;
-        shoot2Pressed = false;
     }
 
     private void setGameOver(boolean win) {
         if (!gameOver) {
             gameOver = true;
             gameWin = win;
+            SoundPlayer.stopBackgroundMusic();
             if (gameFrame != null && gameMode == MODE_STAGE) {
                 gameFrame.getLeaderboard().addScore(score, twoPlayer);
             }
@@ -866,641 +201,143 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 gameOverSoundPlayed = true;
                 SoundPlayer.playGameOver();
             }
-            // Play defeat sound if player loses
             if (!win && !defeatSoundPlayed) {
                 defeatSoundPlayed = true;
                 SoundPlayer.playDefeat();
             }
-        } else {
-            gameWin = win;
-        }
-    }
-
-    private void advanceToNextStage() {
-        bossSpawned = false;
-        if (gameMode == MODE_STAGE) {
-            playerShotCount *= 2;
-            player2ShotCount *= 2;
-        }
-        if (currentLevel < MAX_STAGE_LEVELS) {
-            currentLevel++;
-            bullets.clear();
-            player2Bullets.clear();
-            enemyBullets.clear();
-            alienShootTimer = 0;
-            playerX = (WIDTH - PLAYER_WIDTH) / 2;
-            playerY = safeLineY;
-            player2X = (WIDTH - PLAYER_WIDTH) / 2;
-            player2Y = safeLineY;
-            fireCooldown = 0;
-            fireCooldown2 = 0;
-            moveLeft = false;
-            moveRight = false;
-            moveUp = false;
-            moveDown = false;
-            moveLeft2 = false;
-            moveRight2 = false;
-            moveUp2 = false;
-            moveDown2 = false;
-            shootPressed = false;
-            shoot2Pressed = false;
-            initAliens();
-            return;
-        }
-
-        setGameOver(true);
-    }
-
-    private void updateStageSpawning() {
-        if (gameMode == MODE_STAGE) {
-            int spawnBatch = Math.min(stageSpawnBatch + currentLevel - 1, remainingStageAliens);
-            int spawnInterval = Math.max(STAGE_SPAWN_MIN_INTERVAL, STAGE_SPAWN_INTERVAL - (currentLevel - 1) * 15);
-
-            if (aliens.isEmpty() && remainingStageAliens > 0) {
-                int spawnCount = Math.min(spawnBatch, remainingStageAliens);
-                spawnStageAliens(spawnCount);
-                remainingStageAliens -= spawnCount;
-                stageNextSpawnCountdown = spawnInterval;
-                return;
-            }
-
-            if (remainingStageAliens > 0) {
-                stageNextSpawnCountdown--;
-                if (stageNextSpawnCountdown <= 0) {
-                    int spawnCount = Math.min(spawnBatch, remainingStageAliens);
-                    spawnStageAliens(spawnCount);
-                    remainingStageAliens -= spawnCount;
-                    stageNextSpawnCountdown = spawnInterval;
-                }
-            }
-        } else if (gameMode == MODE_DODGING) {
-            updateDodgingSpawning();
-        }
-    }
-    
-    private void updateDodgingSpawning() {
-        // Spawn one alien at a time in dodging mode
-        if (dodgingBossSpawned && aliens.isEmpty()) {
-            // Boss was defeated, continue spawning normal aliens
-            dodgingBossSpawned = false;
-            remainingDodgingAliens = DODGING_TOTAL_ALIENS;
-            dodgingWaveCount = 0;
-            dodgingNextSpawnCountdown = DODGING_SPAWN_INTERVAL;
-        }
-        
-        if (remainingDodgingAliens > 0) {
-            dodgingNextSpawnCountdown--;
-            if (dodgingNextSpawnCountdown <= 0) {
-                int x = 20 + random.nextInt(WIDTH - 40 - ALIEN_WIDTH);
-                int y = START_Y;
-                aliens.add(new Alien(x, y));
-                remainingDodgingAliens--;
-                dodgingWaveCount++;
-                dodgingNextSpawnCountdown = DODGING_SPAWN_INTERVAL;
-                
-                // Spawn boss after certain wave count
-                if (dodgingWaveCount >= (DODGING_BOSS_SPAWN_TIME / DODGING_SPAWN_INTERVAL) && !dodgingBossSpawned) {
-                    spawnDodgingBoss();
-                }
-            }
-        }
-    }
-    
-    private void spawnDodgingBoss() {
-        dodgingBossSpawned = true;
-        remainingDodgingAliens = 0;
-        int x = (WIDTH - ALIEN_WIDTH) / 2;
-        int y = START_Y;
-        aliens.add(new Alien(x, y, BOSS_HEALTH, true));
-        alienSpeed = alienBaseSpeed;
-        // Play boss music on boss spawn
-        if (!bossMusicPlayed) {
-            bossMusicPlayed = true;
-            SoundPlayer.playBoss();
-        }
-    }
-
-    private void spawnStageAliens(int count) {
-        boolean wasEmpty = aliens.isEmpty();
-        for (int i = 0; i < count; i++) {
-            int x = 20 + random.nextInt(WIDTH - 40 - ALIEN_WIDTH);
-            int y = START_Y + random.nextInt(180);
-            aliens.add(new Alien(x, y));
-        }
-        if (wasEmpty) {
-        }
-        if (gameMode == MODE_STAGE) {
-            alienSpeed = alienBaseSpeed + (currentLevel - 1) * 0.15 + (score / 100.0) * 0.18;
-        }
-    }
-
-    private void spawnBoss() {
-        bossSpawned = true;
-        int x = (WIDTH - ALIEN_WIDTH) / 2;
-        int y = START_Y;
-        aliens.add(new Alien(x, y, BOSS_HEALTH, true));
-        alienSpeed = alienBaseSpeed + (currentLevel - 1) * 0.15 + (score / 100.0) * 0.18;
-        // Play boss music on boss spawn
-        if (!bossMusicPlayed) {
-            bossMusicPlayed = true;
-            SoundPlayer.playBoss();
         }
     }
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        drawHud(g2);
-        
-        // Draw safety line in classic mode
-        if (gameMode == MODE_CLASSIC) {
-            drawSafetyLine(g2);
-        }
-        
-        drawPlayer(g2);
-        if (twoPlayer) {
-            drawPlayer2(g2);
-        }
-        drawBullets(g2);
-        drawAliens(g2);
-        drawPowerUps(g2);
-        
-        // Draw pause menu if paused
-        if (isPaused) {
-            drawPauseMenu(g2);
-        }
-
-        if (gameOver) {
-            drawGameOver(g2);
-        }
-    }
-
-    private void drawHud(Graphics2D g2) {
-        g2.setColor(new Color(0, 255, 120));
-        g2.setFont(new Font("Consolas", Font.BOLD, 20));
-
-        int x = 20;
-        int y = 30;
-        int lineGap = 30;
-
-        g2.drawString("Score: " + score, x, y);
-        y += lineGap;
-
-        if (twoPlayer) {
-            g2.drawString("P1 Lives: " + playerLives, x, y);
-            y += lineGap;
-            g2.drawString("P2 Lives: " + player2Lives, x, y);
-            y += lineGap;
-        } else {
-            g2.drawString("Lives: " + playerLives, x, y);
-            y += lineGap;
-        }
-
-        String modeText;
-        Color modeColor;
-        if (gameMode == MODE_CLASSIC) {
-            modeText = "CLASSIC";
-            modeColor = new Color(100, 150, 255);
-        } else if (gameMode == MODE_DODGING) {
-            modeText = "DODGING";
-            modeColor = new Color(255, 100, 150);
-        } else {
-            modeText = "STAGE";
-            modeColor = new Color(180, 255, 100);
-        }
-        g2.setColor(modeColor);
-        g2.drawString("Mode: " + modeText, 20, 85);
-        
-        // Draw difficulty level (only for non-classic modes)
-        if (gameMode != MODE_CLASSIC) {
-            String difficultyText;
-            switch(difficulty) {
-                case 0:
-                    difficultyText = "EASY";
-                    g2.setColor(new Color(100, 255, 100));
-                    break;
-                case 1:
-                    difficultyText = "NORMAL";
-                    g2.setColor(new Color(255, 200, 0));
-                    break;
-                case 2:
-                    difficultyText = "HARD";
-                    g2.setColor(new Color(255, 100, 100));
-                    break;
-                default:
-                    difficultyText = "NORMAL";
-                    g2.setColor(new Color(255, 200, 0));
-            }
-            g2.drawString("Difficulty: " + difficultyText, WIDTH - 250, 30);
-        }
-        g2.drawString("Mode: " + modeText, x, y);
-        y += lineGap;
-
-        g2.setColor(new Color(170, 255, 210));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        if (playerAttackBoostRemaining > 0) {
-            g2.drawString("P1 Attack: " + (playerAttackBoostRemaining / 60) + "s", x, y);
-            y += lineGap;
-        }
-        if (twoPlayer && player2AttackBoostRemaining > 0) {
-            g2.drawString("P2 Attack: " + (player2AttackBoostRemaining / 60) + "s", x, y);
-            y += lineGap;
-        }
-        if (shieldRemaining > 0) {
-            g2.drawString("Shield: " + (shieldRemaining / 60) + "s", x, y);
-            y += lineGap;
-        }
-
-        if (!twoPlayer) {
-            g2.setColor(new Color(ultimateActive ? 255 : 100, 100, 255));
-            if (ultimateActive) {
-                g2.drawString("ULTIMATE ACTIVE: " + (ultimateDuration / 60) + "s", x, y);
-            } else if (ultimateCooldown > 0) {
-                g2.drawString("Ultimate Cooldown: " + (ultimateCooldown / 60) + "s (Press U)", x, y);
-            } else {
-                g2.drawString("Ultimate Ready (Press U)", x, y);
-            }
-            y += lineGap;
-        } else {
-            g2.setColor(new Color(200, 200, 200));
-            g2.drawString("Two Player Mode: No Ultimate", x, y);
-            y += lineGap;
-        }
-
-        g2.setColor(new Color(170, 255, 210));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        g2.drawString((gameMode == MODE_DODGING || gameMode == MODE_STAGE)
-                ? "P1: Arrows  Shoot: Space" + (twoPlayer ? " | P2: WASD  Shoot: H" : "")
-                : "P1: Left/Right  Shoot: Space" + (twoPlayer ? " | P2: A/D  Shoot: H" : ""), x, y);
-        y += lineGap;
-        g2.drawString("Pause: P  Menu: Esc  Restart: R", x, y);
-
-        switch(difficulty) {
-            case 0:
-                g2.setColor(new Color(100, 255, 100));
-                break;
-            case 1:
-                g2.setColor(new Color(255, 200, 0));
-                break;
-            case 2:
-                g2.setColor(new Color(255, 100, 100));
-                break;
-            default:
-                g2.setColor(new Color(255, 200, 0));
-        }
-        if (gameMode == MODE_STAGE) {
-            g2.drawString("Stage: " + currentLevel, WIDTH - 250, 60);
-        }
-        g2.setColor(new Color(170, 255, 210));
-        g2.drawString("Aliens: " + aliens.size(), WIDTH - 250, 90);
-    }
-
-    private void drawSafetyLine(Graphics2D g2) {
-        g2.setColor(new Color(255, 100, 100, 200));
-        g2.setStroke(new java.awt.BasicStroke(2, java.awt.BasicStroke.CAP_BUTT, 
-                java.awt.BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0));
-        g2.drawLine(0, safeLineY - 5, WIDTH, safeLineY - 5);
-        
-        g2.setColor(new Color(255, 100, 100, 150));
-        g2.setFont(new Font("Consolas", Font.BOLD, 12));
-        String warning = "DANGER ZONE";
-        int tw = g2.getFontMetrics().stringWidth(warning);
-        g2.drawString(warning, (WIDTH - tw) / 2, safeLineY - 15);
-    }
-
-    private void drawPauseMenu(Graphics2D g2) {
-        // Semi-transparent overlay
-        g2.setColor(new Color(0, 0, 0, 200));
-        g2.fillRect(0, 0, WIDTH, HEIGHT);
-        
-        // Title
-        g2.setColor(new Color(255, 200, 0));
-        g2.setFont(new Font("Consolas", Font.BOLD, 70));
-        String title = "PAUSED";
-        int tw = g2.getFontMetrics().stringWidth(title);
-        g2.drawString(title, (WIDTH - tw) / 2, 150);
-        
-        // Resume countdown if active
-        if (resumeCountdown > 0) {
-            g2.setColor(new Color(0, 255, 150));
-            g2.setFont(new Font("Consolas", Font.BOLD, 50));
-            int secondsLeft = (resumeCountdown + 59) / 60; // Round up to nearest second
-            String countdownText = "Resuming in " + secondsLeft;
-            int cw = g2.getFontMetrics().stringWidth(countdownText);
-            g2.drawString(countdownText, (WIDTH - cw) / 2, 280);
-            return;
-        }
-        
-        // Menu options
-        int startY = 280;
-        String[] options = {"Continue Game", "Return to Menu"};
-        
-        for (int i = 0; i < options.length; i++) {
-            if (pausedSelectedOption == i) {
-                // Highlighted
-                g2.setColor(new Color(255, 200, 0));
-                g2.setFont(new Font("Consolas", Font.BOLD, 36));
-                int ow = g2.getFontMetrics().stringWidth(options[i]);
-                
-                // Background box
-                int boxX = (WIDTH - ow) / 2 - 20;
-                int boxY = startY + i * 80 - 35;
-                int boxW = ow + 40;
-                int boxH = 50;
-                
-                g2.setColor(new Color(150, 120, 0, 100));
-                g2.fillRect(boxX, boxY, boxW, boxH);
-                g2.setColor(new Color(255, 200, 0));
-                g2.setStroke(new java.awt.BasicStroke(3));
-                g2.drawRect(boxX, boxY, boxW, boxH);
-                
-                // Text
-                g2.setColor(new Color(255, 200, 0));
-                g2.drawString(options[i], (WIDTH - ow) / 2, startY + i * 80);
-            } else {
-                // Normal
-                g2.setColor(new Color(100, 200, 255));
-                g2.setFont(new Font("Consolas", Font.PLAIN, 36));
-                int ow = g2.getFontMetrics().stringWidth(options[i]);
-                g2.drawString(options[i], (WIDTH - ow) / 2, startY + i * 80);
-            }
-        }
-        
-        // Hint
-        g2.setColor(new Color(100, 200, 255));
-        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
-        String hint = "Use ↑↓ to select, Enter to confirm";
-        int hw = g2.getFontMetrics().stringWidth(hint);
-        g2.drawString(hint, (WIDTH - hw) / 2, 550);
-    }
-
-    private void drawPlayer(Graphics2D g2) {
-        boolean dead = playerLives <= 0;
-        Color hullColor = dead ? new Color(140, 140, 140) : new Color(50, 150, 255);
-        Color outlineColor = dead ? new Color(180, 180, 180) : new Color(100, 180, 255);
-        Color cockpitFill = dead ? new Color(190, 190, 190) : new Color(150, 255, 150);
-        Color cockpitOutline = dead ? new Color(170, 170, 170) : new Color(100, 200, 100);
-        Color thrusterColor = dead ? new Color(170, 170, 170) : new Color(255, 100, 50);
-        Color thrusterAccent = dead ? new Color(200, 200, 200) : new Color(255, 200, 100);
-
-        int[] hullX = {
-            playerX + PLAYER_WIDTH / 2,
-            playerX + 5,
-            playerX + PLAYER_WIDTH - 5
-        };
-        int[] hullY = {
-            playerY,
-            playerY + PLAYER_HEIGHT,
-            playerY + PLAYER_HEIGHT
-        };
-
-        Polygon hull = new Polygon(hullX, hullY, 3);
-        g2.setColor(hullColor);
-        g2.fillPolygon(hull);
-
-        g2.setColor(outlineColor);
-        g2.setStroke(new java.awt.BasicStroke(2));
-        g2.drawPolygon(hull);
-
-        int cockpitX = playerX + PLAYER_WIDTH / 2 - 6;
-        int cockpitY = playerY + 4;
-        g2.setColor(cockpitFill);
-        g2.fillOval(cockpitX, cockpitY, 12, 8);
-        g2.setColor(cockpitOutline);
-        g2.drawOval(cockpitX, cockpitY, 12, 8);
-
-        g2.setColor(thrusterColor);
-        g2.fillRect(playerX + 8, playerY + PLAYER_HEIGHT - 4, 6, 4);
-        g2.fillRect(playerX + PLAYER_WIDTH - 14, playerY + PLAYER_HEIGHT - 4, 6, 4);
-        g2.setColor(thrusterAccent);
-        g2.fillRect(playerX + PLAYER_WIDTH / 2 - 2, playerY + PLAYER_HEIGHT - 2, 4, 2);
-
-        if (shieldRemaining > 0 && !dead) {
-            g2.setColor(new Color(80, 200, 255, 120));
-            g2.setStroke(new java.awt.BasicStroke(4));
-            g2.drawOval(playerX - 8, playerY - 8, PLAYER_WIDTH + 16, PLAYER_HEIGHT + 16);
-        }
-    }
-
-    private void drawPlayer2(Graphics2D g2) {
-        boolean dead = player2Lives <= 0;
-        Color hullColor = dead ? new Color(140, 140, 140) : new Color(255, 150, 50);
-        Color outlineColor = dead ? new Color(180, 180, 180) : new Color(255, 200, 100);
-        Color cockpitFill = dead ? new Color(200, 200, 200) : new Color(255, 220, 150);
-        Color cockpitOutline = dead ? new Color(170, 170, 170) : new Color(200, 160, 100);
-        Color thrusterColor = dead ? new Color(190, 190, 190) : new Color(255, 180, 100);
-
-        int[] hullX = {
-            player2X + PLAYER_WIDTH / 2,
-            player2X + 5,
-            player2X + PLAYER_WIDTH - 5
-        };
-        int[] hullY = {
-            player2Y,
-            player2Y + PLAYER_HEIGHT,
-            player2Y + PLAYER_HEIGHT
-        };
-
-        Polygon hull = new Polygon(hullX, hullY, 3);
-        g2.setColor(hullColor);
-        g2.fillPolygon(hull);
-        g2.setColor(outlineColor);
-        g2.setStroke(new java.awt.BasicStroke(2));
-        g2.drawPolygon(hull);
-
-        int cockpitX = player2X + PLAYER_WIDTH / 2 - 6;
-        int cockpitY = player2Y + 4;
-        g2.setColor(cockpitFill);
-        g2.fillOval(cockpitX, cockpitY, 12, 8);
-        g2.setColor(cockpitOutline);
-        g2.drawOval(cockpitX, cockpitY, 12, 8);
-
-        g2.setColor(thrusterColor);
-        g2.fillRect(player2X + 8, player2Y + PLAYER_HEIGHT - 4, 6, 4);
-        g2.fillRect(player2X + PLAYER_WIDTH - 14, player2Y + PLAYER_HEIGHT - 4, 6, 4);
-        g2.fillRect(player2X + PLAYER_WIDTH / 2 - 2, player2Y + PLAYER_HEIGHT - 2, 4, 2);
-    }
-
-    private void drawBullets(Graphics2D g2) {
-        g2.setColor(Color.WHITE);
-        for (Bullet bullet : bullets) {
-            g2.fillRect(bullet.x, bullet.y, BULLET_WIDTH, BULLET_HEIGHT);
-        }
-        g2.setColor(new Color(100, 255, 255));
-        for (Bullet bullet : player2Bullets) {
-            g2.fillRect(bullet.x, bullet.y, BULLET_WIDTH, BULLET_HEIGHT);
-        }
-        g2.setColor(new Color(255, 120, 80));
-        for (Bullet bullet : enemyBullets) {
-            g2.fillRect(bullet.x, bullet.y, BULLET_WIDTH, BULLET_HEIGHT);
-        }
-    }
-
-    private void drawPowerUps(Graphics2D g2) {
-        for (PowerUp powerUp : powerUps) {
-            powerUp.draw(g2);
-        }
-    }
-
-    private void drawAliens(Graphics2D g2) {
-        for (Alien alien : aliens) {
-            if (alien.boss) {
-                g2.setColor(new Color(255, 120, 80));
-                g2.fillRoundRect((int) alien.x, (int) alien.y, ALIEN_WIDTH, ALIEN_HEIGHT, 8, 8);
-                g2.setColor(new Color(200, 50, 50));
-                g2.drawRoundRect((int) alien.x, (int) alien.y, ALIEN_WIDTH, ALIEN_HEIGHT, 8, 8);
-                int barWidth = ALIEN_WIDTH;
-                int barHeight = 6;
-                int barX = (int) alien.x;
-                int barY = (int) alien.y - 12;
-                g2.setColor(Color.DARK_GRAY);
-                g2.fillRect(barX, barY, barWidth, barHeight);
-                g2.setColor(new Color(255, 80, 80));
-                int healthWidth = Math.max(0, (int) ((alien.health / (double) BOSS_HEALTH) * barWidth));
-                g2.fillRect(barX, barY, healthWidth, barHeight);
-            } else {
-                g2.setColor(new Color(150, 255, 80));
-                g2.fillRoundRect((int) alien.x, (int) alien.y, ALIEN_WIDTH, ALIEN_HEIGHT, 6, 6);
-                g2.setColor(new Color(30, 80, 20));
-                g2.fillOval((int) alien.x + 8, (int) alien.y + 7, 6, 6);
-                g2.fillOval((int) alien.x + 22, (int) alien.y + 7, 6, 6);
-            }
-        }
-    }
-
-    private void drawGameOver(Graphics2D g2) {
-        g2.setColor(new Color(0, 0, 0, 180));
-        g2.fillRect(0, 0, WIDTH, HEIGHT);
-
-        g2.setColor(Color.WHITE);
-        g2.setFont(new Font("Consolas", Font.BOLD, 40));
-
-        String title = gameWin ? "YOU WIN" : "GAME OVER";
-        int tw = g2.getFontMetrics().stringWidth(title);
-        g2.drawString(title, (WIDTH - tw) / 2, HEIGHT / 2 - 20);
-
-        g2.setFont(new Font("Consolas", Font.PLAIN, 20));
-        String scoreText = "Final Score: " + score;
-        int sw = g2.getFontMetrics().stringWidth(scoreText);
-        g2.drawString(scoreText, (WIDTH - sw) / 2, HEIGHT / 2 + 20);
-
-        String restartText = "Press R to Restart";
-        int rw = g2.getFontMetrics().stringWidth(restartText);
-        g2.drawString(restartText, (WIDTH - rw) / 2, HEIGHT / 2 + 60);
-    }
-
-    @Override
-    public void keyTyped(KeyEvent e) {
-        // Not used.
+        gameRenderer.paint((Graphics2D) g);
     }
 
     @Override
     public void keyPressed(KeyEvent e) {
         int code = e.getKeyCode();
-        
-        // Handle pause menu navigation
+
         if (isPaused && resumeCountdown == 0) {
-            if (code == KeyEvent.VK_UP) {
-                pausedSelectedOption = (pausedSelectedOption - 1 + 2) % 2;
-                repaint();
-                return;
-            } else if (code == KeyEvent.VK_DOWN) {
-                pausedSelectedOption = (pausedSelectedOption + 1) % 2;
-                repaint();
-                return;
-            } else if (code == KeyEvent.VK_ENTER) {
-                handlePauseMenuChoice();
-                repaint();
-                return;
-            }
+            handlePauseMenuInput(code);
+            return;
         }
         
-        // Handle pause key
-        if (code == KeyEvent.VK_P && !gameOver && !isPaused) {
+        if (code == KeyEvent.VK_P && !gameOver) {
             isPaused = true;
-            pausedSelectedOption = PAUSE_CONTINUE;
-            repaint();
+            pausedSelectedOption = 0;
+            return;
+        }
+        if (code == KeyEvent.VK_ESCAPE && !gameOver) {
+            gameTimer.stop();
+            if (gameFrame != null) gameFrame.returnToMainMenu();
+            return;
+        }
+        if (code == KeyEvent.VK_R && gameOver) {
+            restartGame();
+            startGame();
             return;
         }
 
-        if (code == KeyEvent.VK_ESCAPE && !gameOver) {
-            gameTimer.stop();
-            if (gameFrame != null) {
-                gameFrame.returnToMainMenu();
-            }
-            return;
-        }
-        
-        if (code == KeyEvent.VK_LEFT) {
-            moveLeft = true;
-        } else if (code == KeyEvent.VK_RIGHT) {
-            moveRight = true;
-        } else if (code == KeyEvent.VK_UP) {
-            moveUp = true;
-        } else if (code == KeyEvent.VK_DOWN) {
-            moveDown = true;
-        } else if (code == KeyEvent.VK_A) {
-            moveLeft2 = true;
-        } else if (code == KeyEvent.VK_D) {
-            moveRight2 = true;
-        } else if (code == KeyEvent.VK_W) {
-            moveUp2 = true;
-        } else if (code == KeyEvent.VK_S) {
-            moveDown2 = true;
-        } else if (code == KeyEvent.VK_SPACE) {
-            shootPressed = true;
-        } else if (code == KeyEvent.VK_H) {
-            shoot2Pressed = true;
-        } else if (code == KeyEvent.VK_U && !gameOver && !isPaused && !twoPlayer && ultimateCooldown == 0) {
-            // Activate ultimate ability (single-player only)
-            ultimateActive = true;
-            ultimateDuration = ULTIMATE_DURATION;
-            ultimateFireCounter = 0;
-            SoundPlayer.playShoot();
-        } else if (code == KeyEvent.VK_R && gameOver) {
-            restartGame();
-        }
-    }
-    
-    private void handlePauseMenuChoice() {
-        if (pausedSelectedOption == PAUSE_CONTINUE) {
-            // Start countdown to resume (3 seconds = 3000ms / 16ms per frame ≈ 188 frames)
-            resumeCountdown = 188;
-        } else if (pausedSelectedOption == PAUSE_RETURN) {
-            // Return to main menu
-            gameTimer.stop();
-            if (gameFrame != null) {
-                gameFrame.returnToMainMenu();
-            }
-        }
+        handlePlayerInput(code, true);
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        int code = e.getKeyCode();
-        if (code == KeyEvent.VK_LEFT) {
-            moveLeft = false;
-        } else if (code == KeyEvent.VK_RIGHT) {
-            moveRight = false;
-        } else if (code == KeyEvent.VK_UP) {
-            moveUp = false;
-        } else if (code == KeyEvent.VK_DOWN) {
-            moveDown = false;
-        } else if (code == KeyEvent.VK_A) {
-            moveLeft2 = false;
-        } else if (code == KeyEvent.VK_D) {
-            moveRight2 = false;
-        } else if (code == KeyEvent.VK_W) {
-            moveUp2 = false;
-        } else if (code == KeyEvent.VK_S) {
-            moveDown2 = false;
-        } else if (code == KeyEvent.VK_SPACE) {
-            shootPressed = false;
-        } else if (code == KeyEvent.VK_H) {
-            shoot2Pressed = false;
+        handlePlayerInput(e.getKeyCode(), false);
+    }
+
+    private void handlePlayerInput(int code, boolean isPressed) {
+        // Player 1
+        if (code == KeyEvent.VK_LEFT) player1.setMoveLeft(isPressed);
+        else if (code == KeyEvent.VK_RIGHT) player1.setMoveRight(isPressed);
+        else if (code == KeyEvent.VK_UP) player1.setMoveUp(isPressed);
+        else if (code == KeyEvent.VK_DOWN) player1.setMoveDown(isPressed);
+        else if (code == KeyEvent.VK_SPACE) player1.setShootPressed(isPressed);
+        else if (code == KeyEvent.VK_U && isPressed && !twoPlayer) player1.activateUltimate();
+
+        // Player 2
+        if (twoPlayer) {
+            if (code == KeyEvent.VK_A) player2.setMoveLeft(isPressed);
+            else if (code == KeyEvent.VK_D) player2.setMoveRight(isPressed);
+            else if (code == KeyEvent.VK_W) player2.setMoveUp(isPressed);
+            else if (code == KeyEvent.VK_S) player2.setMoveDown(isPressed);
+            else if (code == KeyEvent.VK_H) player2.setShootPressed(isPressed);
         }
     }
+    
+    private void handlePauseMenuInput(int code) {
+        if (code == KeyEvent.VK_UP) {
+            pausedSelectedOption = (pausedSelectedOption - 1 + 2) % 2;
+        } else if (code == KeyEvent.VK_DOWN) {
+            pausedSelectedOption = (pausedSelectedOption + 1) % 2;
+        } else if (code == KeyEvent.VK_ENTER) {
+            if (pausedSelectedOption == 0) { // Continue
+                resumeCountdown = 180;
+            } else { // Return to Menu
+                gameTimer.stop();
+                if (gameFrame != null) gameFrame.returnToMainMenu();
+            }
+        }
+    }
+    
+    public void setAlienSpeed(int difficulty, int gameMode, int currentLevel) {
+        double difficultyMultiplier = getDifficultyMultiplier();
+        if (gameMode == MODE_CLASSIC) {
+            alienBaseSpeed = 1.8;
+        } else {
+            alienBaseSpeed = 1.0 + (currentLevel - 1) * 0.25;
+        }
+        double scoreFactor = (gameMode == MODE_CLASSIC) ? 0.22 : 0.15;
+        alienSpeed = (alienBaseSpeed + (score / 100.0) * scoreFactor) * difficultyMultiplier;
+    }
+
+    public double getDifficultyMultiplier() {
+        if (gameMode == MODE_CLASSIC) {
+            return 1.0;
+        }
+        switch (difficulty) {
+            case 0: return 1.0;
+            case 1: return 2.0;
+            default: return 4.0;
+        }
+    }
+
+    // Getters for other classes
+    public int getScore() { return score; }
+    public void addScore(int points) { this.score += points; }
+    public int getGameMode() { return gameMode; }
+    public int getDifficulty() { return difficulty; }
+    public int getCurrentLevel() { return currentLevel; }
+    public boolean isTwoPlayer() { return twoPlayer; }
+    public Player getPlayer1() { return player1; }
+    public Player getPlayer2() { return player2; }
+    public boolean isGameOver() { return gameOver; }
+    public boolean isGameWin() { return gameWin; }
+    public boolean isPaused() { return isPaused; }
+    public int getResumeCountdown() { return resumeCountdown; }
+    public int getPausedSelectedOption() { return pausedSelectedOption; }
+    public EntityManager getEntityManager() { return entityManager; }
+    public double getAlienSpeed() { return alienSpeed; }
+    public boolean isBossMusicPlayed() { return bossMusicPlayed; }
+    public void setBossMusicPlayed(boolean played) { this.bossMusicPlayed = played; }
+    
+    public int getRemainingStageAliens() { return remainingStageAliens; }
+    public void setRemainingStageAliens(int count) { this.remainingStageAliens = count; }
+    public int getStageSpawnBatch() { return stageSpawnBatch; }
+    public int getStageNextSpawnCountdown() { return stageNextSpawnCountdown; }
+    public void setStageNextSpawnCountdown(int count) { this.stageNextSpawnCountdown = count; }
+    public void decrementStageNextSpawnCountdown() { this.stageNextSpawnCountdown--; }
+    
+    public int getRemainingDodgingAliens() { return remainingDodgingAliens; }
+    public void setRemainingDodgingAliens(int count) { this.remainingDodgingAliens = count; }
+    public int getDodgingNextSpawnCountdown() { return dodgingNextSpawnCountdown; }
+    public void setDodgingNextSpawnCountdown(int count) { this.dodgingNextSpawnCountdown = count; }
+    public void decrementDodgingNextSpawnCountdown() { this.dodgingNextSpawnCountdown--; }
+    public int getDodgingWaveCount() { return dodgingWaveCount; }
+    public void incrementDodgingWaveCount() { this.dodgingWaveCount++; }
+    public void setDodgingWaveCount(int count) { this.dodgingWaveCount = count; }
+
+    @Override
+    public void keyTyped(KeyEvent e) {}
 }
