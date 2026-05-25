@@ -331,7 +331,7 @@ public class EntityManager {
             for (Alien bossAlien : bossAliens) {
                 fireBossDownShot(bossAlien);
             }
-            bossAttackTimer = 16;
+            bossAttackTimer = 36;
         }
     }
 
@@ -485,6 +485,7 @@ public class EntityManager {
                         alien.health--;
                         if (alien.health <= 0) {
                             alienIterator.remove();
+                            gamePanel.addScore(50);
                             SoundPlayer.playExplosion();
                         } else {
                             SoundPlayer.playHit();
@@ -493,7 +494,7 @@ public class EntityManager {
                         alien.health--;
                         if (alien.health <= 0) {
                             alienIterator.remove();
-                            gamePanel.addScore(20);
+                            gamePanel.addScore(50);
                             SoundPlayer.playExplosion();
                         } else {
                             SoundPlayer.playHit();
@@ -608,7 +609,7 @@ public class EntityManager {
             count = 2 * cycle;
             spawnDodgingNormalAliens(count, true);
         } else {
-            count = Math.max(2, cycle);
+            count = cycle;
             spawnDodgingBossWave(count);
         }
 
@@ -726,6 +727,9 @@ public class EntityManager {
     private void updateShieldedSpawning() {
         if (gamePanel.getGameMode() == GamePanel.MODE_DODGING) {
             return; // Dodging 模式只使用固定波次，不再隨機插入護盾敵人
+        }
+        if (gamePanel.getGameMode() == GamePanel.MODE_CLASSIC) {
+            return; // Classic 模式不生成護盾(藍色)敵人
         }
         if (spawnDelayTimer > 0) {
             return;
