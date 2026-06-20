@@ -4,7 +4,9 @@ A classic Space Invaders game implementation in Java using Swing GUI framework.
 
 ## Documentation
 
-- Project overview, UML, GUI structure, and API summary: [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)
+- UML 類別圖: [docs/UML.md](docs/UML.md)
+- GUI 設計說明: [docs/GUI設計說明.md](docs/GUI設計說明.md)
+- API 說明: [docs/API說明.md](docs/API說明.md)
 - Generated API docs: [docs/api/](docs/api/)
 
 ## Project Structure
