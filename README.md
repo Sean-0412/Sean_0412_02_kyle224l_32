@@ -2,6 +2,11 @@
 
 A classic Space Invaders game implementation in Java using Swing GUI framework.
 
+## Documentation
+
+- Project overview, UML, GUI structure, and API summary: [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)
+- Generated API docs: [docs/api/](docs/api/)
+
 ## Project Structure
 
 ```
@@ -48,6 +53,16 @@ mvn package
 # Run
 java -cp target/space-invaders-game-1.0.0.jar com.spaceinvaders.SpaceInvadersGame
 ```
+
+### Runnable JAR
+
+If the jar has already been built, run:
+
+```bash
+java -jar target/space-invaders-game-1.0.0.jar
+```
+
+The game also expects the `resouce/` folder to remain next to the jar if you want background music and sound effects to load from the filesystem path currently used by `SoundPlayer`.
 
 ### Using Gradle (Alternative)
 
