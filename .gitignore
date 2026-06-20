@@ -35,3 +35,7 @@ Thumbs.db
 *.ear
 bin/
 build/
+target/
+.gradle/
+*.class
+leaderboard.txt
