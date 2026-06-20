@@ -1,9 +1,11 @@
 # UML 類別圖
 
+本專題使用 Java Swing 製作 Space Invaders 遊戲。主要類別可分為啟動入口、視窗與 GUI、遊戲邏輯、遊戲物件、音效與排行榜等部分。
+
 ```mermaid
 classDiagram
     class SpaceInvadersGame {
-        +main(String[])
+        +main(String[] args) void
     }
 
     class GameFrame {
@@ -12,134 +14,138 @@ classDiagram
         -Leaderboard leaderboard
         -int lastGameMode
         +GameFrame()
-        +startGameWithSettings(int, int, boolean)
-        +returnToDifficultyMenu()
-        +returnToMainMenu()
+        +startGameWithSettings(int gameMode, int difficulty, boolean twoPlayer) void
+        +returnToDifficultyMenu() void
+        +returnToMainMenu() void
         +getLeaderboard() Leaderboard
     }
 
     class MenuPanel {
-        -GameFrame gameFrame
-        -int currentState
-        -int selectedOption
-        +MenuPanel(GameFrame)
-        +setInitialStateToDifficultyMenu(int)
+        +MenuPanel(GameFrame frame)
+        +setInitialStateToDifficultyMenu(int gameMode) void
     }
 
     class GamePanel {
+        +WIDTH int
+        +HEIGHT int
+        +MODE_CLASSIC int
+        +MODE_DODGING int
+        +MODE_STAGE int
         -GameFrame gameFrame
         -Player player1
         -Player player2
         -EntityManager entityManager
         -GameRenderer gameRenderer
-        +GamePanel(GameFrame, int, int, boolean)
-        +startGame()
-        +setAlienSpeed(int, int, int)
-        +getDifficultyMultiplier() double
+        +GamePanel(GameFrame gameFrame, int gameMode, int difficulty, boolean twoPlayer)
+        +startGame() void
+        +actionPerformed(ActionEvent e) void
+        +keyPressed(KeyEvent e) void
+        +keyReleased(KeyEvent e) void
+        +addScore(int points) void
+        +getScore() int
+        +getPlayer1() Player
+        +getPlayer2() Player
+        +getEntityManager() EntityManager
     }
 
     class GameRenderer {
         -GamePanel gamePanel
         -GameUI gameUI
         -EntityManager entityManager
-        +paint(Graphics2D)
+        +GameRenderer(GamePanel gamePanel, EntityManager entityManager)
+        +paint(Graphics2D g2) void
     }
 
     class GameUI {
         -GamePanel gamePanel
-        +draw(Graphics2D)
+        +GameUI(GamePanel gamePanel)
+        +draw(Graphics2D g2) void
     }
 
     class EntityManager {
-        -GamePanel gamePanel
-        -List~Alien~ aliens
-        -List~Bullet~ enemyBullets
-        -List~PowerUp~ powerUps
-        +update(Player, Player, boolean)
-        +draw(Graphics2D)
-        +initAliens(int, int, int)
-        +spawnPowerUps(int, int)
+        +initAliens(int gameMode, int currentLevel, int difficulty) void
+        +update(Player player1, Player player2, boolean twoPlayer) void
+        +draw(Graphics2D g2) void
+        +spawnBoss() void
         +getAliens() List~Alien~
     }
 
-    class Shooter {
-        +x
-        +y
-        +move()
-        +draw(Graphics)
+    class Player {
+        -int x
+        -int y
+        -int lives
+        -List~Bullet~ bullets
+        +Player(int startX, int startY, int gameMode, boolean isPlayer1, int startLives)
+        +update() void
+        +draw(Graphics2D g2) void
+        +handleHit() void
+        +applyPowerUp(int type) void
+        +activateUltimate() void
+        +reset() void
+        +getBullets() List~Bullet~
         +getBounds() Rectangle
     }
 
-    class Player {
-        -List~Bullet~ bullets
-        +Player(int, int, int, boolean, int)
-        +update()
-        +draw(Graphics2D)
-        +handleHit()
-        +applyPowerUp(int)
-        +activateUltimate()
-        +reset()
-    }
-
     class Alien {
-        +Alien(int, int)
-        +updateMovement(double, Random, int, int, double)
-        +updateBossMovement(double, Random, int, int, double)
-        +updateShieldedMovement()
-        +draw(Graphics)
+        +double x
+        +double y
+        +int health
+        +boolean boss
+        +boolean shielded
+        +boolean blue
+        +updateMovement(double speed, Random random, int minX, int maxX, double dropSpeed) void
+        +updateBossMovement(double speed, Random random, int minX, int maxX, double maxAmplitude) void
+        +draw(Graphics g) void
+        +getBounds() Rectangle2D.Double
     }
 
     class Bullet {
-        +Bullet(int, int)
-        +Bullet(int, int, int, boolean)
-        +Bullet(int, int, int, int, boolean)
-        +update()
-        +draw(Graphics)
+        +int x
+        +int y
+        +int dx
+        +int dy
+        +boolean enemy
+        +update() void
+        +draw(Graphics g) void
+        +getBounds() Rectangle
     }
 
     class PowerUp {
-        +PowerUp(int, int, int, int, int)
-        +update()
-        +draw(Graphics)
+        +draw(Graphics2D g2) void
+        +getBounds() Rectangle
     }
 
     class Leaderboard {
-        +Leaderboard()
-        +addScore(int)
-        +addScore(int, boolean)
-        +getEntries() List~Entry~
-        +getEntries(boolean) List~Entry~
+        +addScore(int score, boolean twoPlayer) void
     }
 
     class SoundPlayer {
-        +playMenu()
-        +playBattle()
-        +playBoss()
-        +playShoot()
-        +playExplosion()
-        +playGameOver()
-        +playDefeat()
-        +stopBackgroundMusic()
-        +stopAllSounds()
+        +playShoot() void
+        +playHit() void
+        +playExplosion() void
+        +playGameOver() void
+        +playBattle() void
+        +playBoss() void
+        +playMenu() void
+        +playDefeat() void
+        +stopAllSounds() void
+        +stopBackgroundMusic() void
     }
 
     SpaceInvadersGame --> GameFrame
     GameFrame *-- MenuPanel
     GameFrame *-- GamePanel
-    GameFrame o-- Leaderboard
+    GameFrame *-- Leaderboard
+    MenuPanel --> GameFrame
     GamePanel *-- Player
     GamePanel *-- EntityManager
     GamePanel *-- GameRenderer
     GameRenderer *-- GameUI
-    GameRenderer ..> EntityManager
-    GameRenderer ..> Player
+    GameRenderer --> EntityManager
     EntityManager *-- Alien
-    EntityManager *-- Bullet
     EntityManager *-- PowerUp
-    Player ..|> Shooter
-    Alien ..|> Shooter
-    MenuPanel ..> GameFrame
-    GamePanel ..> GameFrame
-    GamePanel ..> SoundPlayer
-    MenuPanel ..> SoundPlayer
-```
+    EntityManager --> Bullet
+    Player *-- Bullet
+    Player --> SoundPlayer
+    EntityManager --> SoundPlayer
+    GameFrame --> SoundPlayer
